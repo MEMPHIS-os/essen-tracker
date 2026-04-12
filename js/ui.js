@@ -29,6 +29,12 @@ function switchTab(tabBtn) {
     actionBtn.style.display = 'none';
   }
 
+  // Search button (only on today tab)
+  const searchBtn = document.getElementById('header-search');
+  if (searchBtn) {
+    searchBtn.style.display = (page === 'page-today') ? 'flex' : 'none';
+  }
+
   // Scanner management
   if (page === 'page-scan') {
     startScanner();
@@ -68,6 +74,12 @@ function hideModal(id) {
   modal.querySelectorAll('input').forEach(i => { i.value = ''; });
   const preview = modal.querySelector('.preview');
   if (preview) preview.classList.add('hidden');
+
+  // Reset meal selector if present
+  if (typeof resetMealSelector === 'function') {
+    const prefix = id.replace('modal-', '');
+    resetMealSelector(prefix + '-meal-selector');
+  }
 
   // Resume scanner if needed
   if (id === 'modal-product') resumeScanner();

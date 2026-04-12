@@ -91,8 +91,29 @@ let currentProduct = null;
 
 async function lookupProduct(barcode) {
   const loading = document.getElementById('scan-loading');
+  const cacheBadge = document.getElementById('product-cache-badge');
   loading.classList.remove('hidden');
+  if (cacheBadge) cacheBadge.classList.add('hidden');
 
+  // 1) Check barcode cache first
+  try {
+    const cached = await getBarcodeCache(barcode);
+    if (cached) {
+      currentProduct = {
+        name: cached.name || cached.productName,
+        kcalPer100: cached.kcalPer100,
+        proteinPer100: cached.proteinPer100,
+        carbsPer100: cached.carbsPer100,
+        fatPer100: cached.fatPer100
+      };
+      loading.classList.add('hidden');
+      if (cacheBadge) cacheBadge.classList.remove('hidden');
+      showProductModal(currentProduct);
+      return;
+    }
+  } catch (e) { /* cache miss, continue to API */ }
+
+  // 2) Fetch from OpenFoodFacts API
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
     const data = await res.json();
@@ -114,6 +135,15 @@ async function lookupProduct(barcode) {
       carbsPer100: n['carbohydrates_100g'] || 0,
       fatPer100: n['fat_100g'] || 0
     };
+
+    // 3) Save to barcode cache for offline use
+    await saveBarcodeCache(barcode, {
+      name: currentProduct.name,
+      kcalPer100: currentProduct.kcalPer100,
+      proteinPer100: currentProduct.proteinPer100,
+      carbsPer100: currentProduct.carbsPer100,
+      fatPer100: currentProduct.fatPer100
+    });
 
     loading.classList.add('hidden');
     showProductModal(currentProduct);
@@ -150,7 +180,8 @@ async function saveScannedProduct() {
     proteinPer100: currentProduct.proteinPer100,
     carbsPer100: currentProduct.carbsPer100,
     fatPer100: currentProduct.fatPer100,
-    grams: grams
+    grams: grams,
+    meal: typeof getSelectedMeal === 'function' ? getSelectedMeal('product') : undefined
   });
 
   hideModal('modal-product');

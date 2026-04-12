@@ -16,7 +16,12 @@
     <!-- Header -->
     <header id="header">
       <h1 id="header-title">Heute</h1>
-      <button id="header-action" class="header-btn" style="display:none">+</button>
+      <div class="header-actions">
+        <button id="header-search" class="header-btn-ghost" style="display:none" onclick="showModal('modal-search')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+        <button id="header-action" class="header-btn" style="display:none">+</button>
+      </div>
     </header>
 
     <!-- Pages -->
@@ -36,6 +41,12 @@
       <!-- Heute -->
       <section id="page-today" class="page active">
         <div id="today-summary">
+          <!-- Streak Badge -->
+          <div id="streak-badge" class="streak-container hidden">
+            <span class="streak-fire">&#128293;</span>
+            <span id="streak-count">0</span>
+            <span class="streak-label">Tage Streak</span>
+          </div>
           <div class="rings-row">
             <div class="ring-container">
               <svg class="progress-ring" viewBox="0 0 100 100">
@@ -57,6 +68,10 @@
                 <span class="ring-unit">Protein</span>
               </div>
             </div>
+          </div>
+          <!-- Verbleibende Kalorien -->
+          <div id="today-remaining" class="remaining-display">
+            <span id="remaining-text">Noch 2000 kcal uebrig</span>
           </div>
           <div class="macro-bars">
             <div class="macro-bar-row">
@@ -81,13 +96,31 @@
             </div>
           </div>
         </div>
+
+        <!-- Wassertracker -->
+        <div id="water-tracker" class="water-section">
+          <div class="water-row">
+            <span class="water-icon">&#128167;</span>
+            <span id="water-count">0</span>
+            <span class="water-label">/ <span id="water-goal">8</span> Glaeser</span>
+            <button id="water-remove" class="water-btn water-btn-minus" onclick="removeWater()">&#8722;</button>
+            <button id="water-add" class="water-btn" onclick="addWater()">+</button>
+          </div>
+          <div class="water-progress-track">
+            <div id="water-progress-fill" class="water-progress-fill"></div>
+          </div>
+        </div>
+
         <div id="recent-products-section" class="hidden">
           <h3 class="section-header">Schnell hinzuf&uuml;gen</h3>
           <div id="recent-products-list" class="recent-chips"></div>
         </div>
 
         <div id="today-entries">
-          <h3 id="entries-header">Eintr&auml;ge (0)</h3>
+          <div class="entries-header-row">
+            <h3 id="entries-header">Eintr&auml;ge (0)</h3>
+            <button id="btn-repeat-yesterday" class="btn-tertiary" onclick="repeatYesterday()">&#8617; Gestern</button>
+          </div>
           <div id="entries-list"></div>
           <div id="entries-empty" class="empty-state">
             <span class="empty-icon">&#127860;</span>
@@ -99,7 +132,6 @@
 
       <!-- Verlauf -->
       <section id="page-history" class="page">
-        <!-- Toggle: Tag / Woche -->
         <div class="history-tabs">
           <button class="htab active" id="htab-day" onclick="switchHistoryTab('day')">Tag</button>
           <button class="htab" id="htab-week" onclick="switchHistoryTab('week')">Woche</button>
@@ -118,6 +150,7 @@
             <span class="empty-icon">&#128466;</span>
             <p>Keine Eintr&auml;ge an diesem Tag</p>
           </div>
+          <button id="btn-copy-day" class="btn-secondary full-width" style="margin-top:12px; display:none;" onclick="copyDayToToday()">&#128203; Tag nach Heute kopieren</button>
         </div>
 
         <!-- Wochenuebersicht -->
@@ -146,7 +179,25 @@
             <label>Protein (g)</label>
             <input type="number" id="settings-protein" placeholder="120" inputmode="numeric">
           </div>
+          <div class="field">
+            <label>Wasser-Ziel (Glaeser)</label>
+            <input type="number" id="settings-water" placeholder="8" inputmode="numeric">
+          </div>
           <button id="btn-save-settings" class="btn-primary" onclick="saveSettings()">Speichern</button>
+        </div>
+        <div class="settings-group">
+          <h3>Gewicht</h3>
+          <div class="field">
+            <label>Heutiges Gewicht (kg)</label>
+            <div class="weight-input-row">
+              <input type="number" id="settings-weight" inputmode="decimal" step="0.1" placeholder="z.B. 75.5">
+              <button class="btn-weight-save" onclick="saveWeightEntry()">Speichern</button>
+            </div>
+          </div>
+          <div id="weight-trend" class="weight-trend"></div>
+          <div id="weight-chart-container" class="weight-chart-container">
+            <svg id="weight-chart" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
         </div>
         <div class="settings-group">
           <h3>Rezepte</h3>
@@ -166,7 +217,7 @@
         </div>
         <div class="settings-group">
           <h3>Info</h3>
-          <div class="info-row"><span>Version</span><span>1.0.0</span></div>
+          <div class="info-row"><span>Version</span><span>2.0.0</span></div>
           <div class="info-row"><span>Eintr&auml;ge gesamt</span><span id="info-entries">0</span></div>
           <div class="info-row"><span>Rezepte</span><span id="info-recipes">0</span></div>
         </div>
@@ -216,6 +267,13 @@
           <button id="btn-save-manual" class="modal-save" onclick="saveManualEntry()">Speichern</button>
         </div>
         <div class="modal-body">
+          <div id="manual-meal-selector" class="meal-selector">
+            <button class="meal-btn active" data-meal="auto">Auto</button>
+            <button class="meal-btn" data-meal="fruehstueck">Fruehstueck</button>
+            <button class="meal-btn" data-meal="mittagessen">Mittag</button>
+            <button class="meal-btn" data-meal="abendessen">Abend</button>
+            <button class="meal-btn" data-meal="snacks">Snacks</button>
+          </div>
           <div class="field"><label>Produktname</label><input type="text" id="manual-name" placeholder="z.B. Haferflocken"></div>
           <h4>N&auml;hrwerte pro 100g</h4>
           <div class="field"><label>Kalorien (kcal)</label><input type="number" id="manual-kcal" inputmode="decimal" step="any"></div>
@@ -238,6 +296,14 @@
           <button class="modal-save" onclick="saveScannedProduct()">Hinzuf&uuml;gen</button>
         </div>
         <div class="modal-body">
+          <div id="product-cache-badge" class="cache-badge hidden">Offline-Daten</div>
+          <div id="product-meal-selector" class="meal-selector">
+            <button class="meal-btn active" data-meal="auto">Auto</button>
+            <button class="meal-btn" data-meal="fruehstueck">Fruehstueck</button>
+            <button class="meal-btn" data-meal="mittagessen">Mittag</button>
+            <button class="meal-btn" data-meal="abendessen">Abend</button>
+            <button class="meal-btn" data-meal="snacks">Snacks</button>
+          </div>
           <div id="product-name" class="product-title"></div>
           <div class="nutrient-grid">
             <div class="nutrient"><span class="nutrient-val" id="product-kcal">0</span><span class="nutrient-label">kcal/100g</span></div>
@@ -297,6 +363,13 @@
           <button class="modal-save" onclick="saveEditedEntry()">Speichern</button>
         </div>
         <div class="modal-body">
+          <div id="edit-meal-selector" class="meal-selector">
+            <button class="meal-btn active" data-meal="auto">Auto</button>
+            <button class="meal-btn" data-meal="fruehstueck">Fruehstueck</button>
+            <button class="meal-btn" data-meal="mittagessen">Mittag</button>
+            <button class="meal-btn" data-meal="abendessen">Abend</button>
+            <button class="meal-btn" data-meal="snacks">Snacks</button>
+          </div>
           <div class="field"><label>Produktname</label><input type="text" id="edit-name"></div>
           <h4>N&auml;hrwerte pro 100g</h4>
           <div class="field"><label>Kalorien (kcal)</label><input type="number" id="edit-kcal" inputmode="decimal" step="any"></div>
@@ -319,6 +392,13 @@
           <button class="modal-save" onclick="saveQuickEntry()">Hinzuf&uuml;gen</button>
         </div>
         <div class="modal-body">
+          <div id="quick-meal-selector" class="meal-selector">
+            <button class="meal-btn active" data-meal="auto">Auto</button>
+            <button class="meal-btn" data-meal="fruehstueck">Fruehstueck</button>
+            <button class="meal-btn" data-meal="mittagessen">Mittag</button>
+            <button class="meal-btn" data-meal="abendessen">Abend</button>
+            <button class="meal-btn" data-meal="snacks">Snacks</button>
+          </div>
           <div id="quick-product-name" class="product-title"></div>
           <div class="nutrient-grid">
             <div class="nutrient"><span class="nutrient-val" id="quick-kcal">0</span><span class="nutrient-label">kcal/100g</span></div>
@@ -330,6 +410,29 @@
           <div id="portion-presets" class="portion-presets"></div>
           <div class="field"><label>Gramm</label><input type="number" id="quick-grams" inputmode="decimal" step="any"></div>
           <div id="quick-total" class="preview hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Produktsuche -->
+    <div id="modal-search" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-search')">Abbrechen</button>
+          <h2>Produkt suchen</h2>
+          <span></span>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <input type="text" id="search-input" placeholder="Produktname eingeben..." autocomplete="off">
+          </div>
+          <div id="search-loading" class="hidden" style="text-align:center;padding:20px;">
+            <div class="spinner"></div>
+          </div>
+          <div id="search-results"></div>
+          <div id="search-empty" class="empty-state hidden">
+            <p>Keine Produkte gefunden</p>
+          </div>
         </div>
       </div>
     </div>

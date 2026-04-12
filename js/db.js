@@ -3,7 +3,7 @@
 // ============================================
 
 const DB_NAME = 'EssenTrackerDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let db = null;
 
@@ -33,6 +33,19 @@ function openDB() {
       if (!database.objectStoreNames.contains('recentProducts')) {
         const rp = database.createObjectStore('recentProducts', { keyPath: 'productName' });
         rp.createIndex('lastUsed', 'lastUsed', { unique: false });
+      }
+
+      // v3: Gewicht, Barcode-Cache, Wasser
+      if (!database.objectStoreNames.contains('weights')) {
+        database.createObjectStore('weights', { keyPath: 'date' });
+      }
+
+      if (!database.objectStoreNames.contains('barcodeCache')) {
+        database.createObjectStore('barcodeCache', { keyPath: 'barcode' });
+      }
+
+      if (!database.objectStoreNames.contains('waterLog')) {
+        database.createObjectStore('waterLog', { keyPath: 'date' });
       }
     };
 
@@ -87,11 +100,22 @@ function dbDelete(storeName, key) {
   });
 }
 
+// ---- Meal auto-detect ----
+
+function autoDetectMeal() {
+  const h = new Date().getHours();
+  if (h < 10) return 'fruehstueck';
+  if (h < 14) return 'mittagessen';
+  if (h < 18) return 'abendessen';
+  return 'snacks';
+}
+
 // ---- Entry-specific ----
 
 async function addEntry(entry) {
   entry.id = entry.id || crypto.randomUUID();
   entry.date = entry.date || new Date().toISOString();
+  entry.meal = entry.meal || autoDetectMeal();
   entry.totalKcal = (entry.kcalPer100 * entry.grams) / 100;
   entry.totalProtein = (entry.proteinPer100 * entry.grams) / 100;
   entry.totalCarbs = (entry.carbsPer100 * entry.grams) / 100;
@@ -144,7 +168,6 @@ async function getAllEntries() {
 
 async function saveRecentProduct(product) {
   await dbPut('recentProducts', product);
-  // Max 30 behalten
   const all = await dbGetAll('recentProducts');
   if (all.length > 30) {
     all.sort((a, b) => a.lastUsed - b.lastUsed);
@@ -158,6 +181,41 @@ async function saveRecentProduct(product) {
 async function getRecentProducts() {
   const all = await dbGetAll('recentProducts');
   return all.sort((a, b) => b.lastUsed - a.lastUsed);
+}
+
+// ---- Barcode Cache ----
+
+async function saveBarcodeCache(barcode, productData) {
+  await dbPut('barcodeCache', { barcode, ...productData, cachedAt: Date.now() });
+}
+
+async function getBarcodeCache(barcode) {
+  return dbGet('barcodeCache', barcode);
+}
+
+// ---- Weight Tracker ----
+
+async function saveWeight(date, weight) {
+  await dbPut('weights', { date, weight });
+}
+
+async function getWeight(date) {
+  return dbGet('weights', date);
+}
+
+async function getAllWeights() {
+  const all = await dbGetAll('weights');
+  return all.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ---- Water Log ----
+
+async function saveWaterLog(date, glasses) {
+  await dbPut('waterLog', { date, glasses });
+}
+
+async function getWaterLog(date) {
+  return dbGet('waterLog', date);
 }
 
 // ---- Recipe-specific ----
@@ -196,7 +254,7 @@ async function addRecipeAsEntries(recipe) {
 
 async function getSettings() {
   const result = await dbGet('settings', 'userGoals');
-  return result || { key: 'userGoals', dailyKcal: 2000, dailyProtein: 120, userName: '' };
+  return result || { key: 'userGoals', dailyKcal: 2000, dailyProtein: 120, dailyWater: 8, userName: '' };
 }
 
 async function saveSettingsData(settings) {
@@ -211,7 +269,14 @@ async function exportFullBackup() {
   const recipes = await dbGetAll('recipes');
   const settings = await getSettings();
   const recentProducts = await dbGetAll('recentProducts');
-  return JSON.stringify({ entries, recipes, settings, recentProducts, exportDate: new Date().toISOString(), version: 2 }, null, 2);
+  const weights = await dbGetAll('weights');
+  const barcodeCache = await dbGetAll('barcodeCache');
+  const waterLog = await dbGetAll('waterLog');
+  return JSON.stringify({
+    entries, recipes, settings, recentProducts,
+    weights, barcodeCache, waterLog,
+    exportDate: new Date().toISOString(), version: 3
+  }, null, 2);
 }
 
 async function importFullBackup(jsonStr) {
@@ -220,4 +285,7 @@ async function importFullBackup(jsonStr) {
   if (data.recipes) for (const r of data.recipes) await dbPut('recipes', r);
   if (data.settings) await dbPut('settings', data.settings);
   if (data.recentProducts) for (const p of data.recentProducts) await dbPut('recentProducts', p);
+  if (data.weights) for (const w of data.weights) await dbPut('weights', w);
+  if (data.barcodeCache) for (const b of data.barcodeCache) await dbPut('barcodeCache', b);
+  if (data.waterLog) for (const l of data.waterLog) await dbPut('waterLog', l);
 }

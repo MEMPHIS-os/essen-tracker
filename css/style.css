@@ -924,6 +924,334 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- Remaining Calories ---- */
+.remaining-display {
+  text-align: center;
+  padding: 0 0 8px;
+}
+
+.remaining-display span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.remaining-display span.over {
+  color: var(--red);
+}
+
+/* ---- Streak Badge ---- */
+.streak-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 0 2px;
+}
+
+.streak-fire { font-size: 18px; }
+
+#streak-count {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--orange);
+}
+
+.streak-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ---- Water Tracker ---- */
+.water-section {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.water-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.water-icon { font-size: 20px; }
+
+#water-count {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+}
+
+.water-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.water-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.water-btn-minus {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.water-progress-track {
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.water-progress-fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 2px;
+  min-width: 0%;
+  max-width: 100%;
+}
+
+/* ---- Meal Selector ---- */
+.meal-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.meal-selector::-webkit-scrollbar { display: none; }
+
+.meal-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.meal-btn.active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---- Meal Groups ---- */
+.meal-group { margin-bottom: 16px; }
+
+.meal-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 4px 4px;
+}
+
+.meal-group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.meal-group-kcal {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Entries Header Row ---- */
+.entries-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.btn-tertiary {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.btn-tertiary:active { background: var(--bg-input); }
+
+/* ---- Product Search ---- */
+.search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-result:last-child { border-bottom: none; }
+
+.search-result-info { flex: 1; }
+
+.search-result-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.search-result-kcal {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.search-result-add {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--orange);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Cache Badge ---- */
+.cache-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--blue);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* ---- Header Actions ---- */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-btn-ghost {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.header-btn-ghost:active { background: var(--bg-input); }
+
+/* ---- Weight Tracker ---- */
+.weight-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.weight-input-row input {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+}
+
+.weight-input-row input:focus { border-color: var(--orange); }
+
+.btn-weight-save {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.weight-trend {
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 0;
+  text-align: center;
+}
+
+.weight-trend .stat-val {
+  font-size: 18px;
+  font-weight: 700;
+  display: block;
+}
+
+.weight-trend .stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.weight-chart-container { margin-top: 8px; }
+
+#weight-chart { width: 100%; height: auto; }
+
+.chart-line {
+  fill: none;
+  stroke: var(--orange);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-area {
+  fill: rgba(249, 115, 22, 0.1);
+}
+
+.chart-dot { fill: var(--orange); }
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 0.5;
+}
+
+.chart-label {
+  fill: var(--text-secondary);
+  font-size: 9px;
+  font-family: system-ui, sans-serif;
+}
+
 /* ---- Utilities ---- */
 .hidden { display: none !important; }
 

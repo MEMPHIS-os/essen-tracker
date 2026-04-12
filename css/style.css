@@ -1,0 +1,932 @@
+/* ============================================
+   EssenTracker PWA — iOS-Style Design
+   ============================================ */
+
+:root {
+  --orange: #f97316;
+  --orange-dim: rgba(249,115,22,0.2);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.2);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.2);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.2);
+  --bg: #0a0a0a;
+  --bg-card: #1a1a1a;
+  --bg-input: #2a2a2a;
+  --bg-modal: #1a1a1a;
+  --text: #f5f5f5;
+  --text-secondary: #888;
+  --border: #333;
+  --tab-bg: #111;
+  --radius: 14px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---- Header ---- */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 12px) 20px 12px;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+#header-title {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.header-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--orange);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* ---- Pages ---- */
+#pages {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 20px;
+}
+
+.page { display: none; padding: 0 16px; }
+.page.active { display: block; animation: fadeIn 0.2s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Tab Bar ---- */
+#tab-bar {
+  display: flex;
+  background: var(--tab-bg);
+  border-top: 1px solid var(--border);
+  padding: 6px 0 calc(var(--safe-bottom) + 6px);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.tab svg { width: 24px; height: 24px; }
+.tab.active { color: var(--orange); }
+
+/* ---- Progress Rings ---- */
+.rings-row {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  padding: 20px 0;
+}
+
+.ring-container {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+.progress-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 8;
+}
+
+.ring-progress {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 263.89;
+  stroke-dashoffset: 263.89;
+}
+
+.ring-progress.kcal { stroke: var(--orange); }
+.ring-progress.protein { stroke: var(--blue); }
+
+.ring-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.ring-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ring-unit {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* ---- Macro Bars ---- */
+.macro-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 4px 16px;
+}
+
+.macro-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.macro-label {
+  width: 70px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.macro-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.macro-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.macro-fill.kcal { background: var(--orange); }
+.macro-fill.protein { background: var(--blue); }
+.macro-fill.carbs { background: var(--green); }
+.macro-fill.fat { background: var(--red); }
+
+.macro-text {
+  width: 80px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Entries List ---- */
+#today-entries { padding-top: 8px; }
+
+#entries-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 4px;
+}
+
+.entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
+}
+
+.entry-left { flex: 1; }
+
+.entry-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.entry-grams {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.entry-right { text-align: right; }
+
+.entry-kcal {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--orange);
+}
+
+.entry-macros {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.entry-macro {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.entry-macro.p { color: var(--blue); }
+.entry-macro.c { color: var(--green); }
+.entry-macro.f { color: var(--red); }
+
+/* Swipe delete */
+.entry-delete-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 80px;
+  background: var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* ---- Empty State ---- */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-icon { font-size: 48px; display: block; margin-bottom: 12px; }
+.empty-state p { font-size: 16px; font-weight: 600; }
+.empty-sub { font-size: 13px; margin-top: 4px; font-weight: 400; }
+
+/* ---- Buttons ---- */
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--orange);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-primary:active { opacity: 0.8; }
+
+.btn-secondary {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:active { background: var(--bg-input); }
+.full-width { display: block; width: 100%; }
+
+/* ---- Modal ---- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transition: opacity 0.25s;
+}
+
+.modal.hidden { display: none; }
+
+.modal-content {
+  background: var(--bg-modal);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-modal);
+  z-index: 1;
+}
+
+.modal-header h2 { font-size: 17px; font-weight: 600; }
+
+.modal-close, .modal-save {
+  background: none;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.modal-close { color: var(--text-secondary); }
+.modal-save { color: var(--orange); font-weight: 600; }
+
+.modal-body { padding: 20px; }
+.modal-body h4 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 20px 0 10px;
+}
+
+/* ---- Form Fields ---- */
+.field {
+  margin-bottom: 12px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.field input, .field select {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field input:focus { border-color: var(--orange); }
+.field input::placeholder { color: #555; }
+
+/* ---- Preview Box ---- */
+.preview {
+  background: var(--bg-input);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.preview.hidden { display: none; }
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.preview-row .val { font-weight: 600; }
+.preview-row .val.kcal { color: var(--orange); }
+.preview-row .val.protein { color: var(--blue); }
+.preview-row .val.carbs { color: var(--green); }
+.preview-row .val.fat { color: var(--red); }
+
+/* ---- Product Detail ---- */
+.product-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.nutrient {
+  text-align: center;
+  padding: 12px 4px;
+  background: var(--bg-input);
+  border-radius: 10px;
+}
+
+.nutrient-val {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--orange);
+}
+
+.nutrient-val.protein { color: var(--blue); }
+.nutrient-val.carbs { color: var(--green); }
+.nutrient-val.fat { color: var(--red); }
+.nutrient-label { font-size: 10px; color: var(--text-secondary); }
+
+/* ---- Scanner ---- */
+#scanner-container {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+#scanner-reader {
+  width: 100%;
+  min-height: 300px;
+}
+
+/* html5-qrcode Overrides fuer Dark Mode */
+#scanner-reader video {
+  border-radius: var(--radius);
+}
+
+#scanner-reader img[alt="Info icon"] { display: none; }
+
+#qr-shaded-region { border-color: var(--orange) !important; }
+
+#scan-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #fff;
+  z-index: 10;
+}
+
+.scanner-fallback {
+  text-align: center;
+  padding: 40px 20px;
+  color: #fff;
+}
+
+.fallback-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.fallback-sub {
+  font-size: 13px;
+  color: #aaa;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Date Navigation ---- */
+.date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.date-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-btn:active { background: var(--bg-input); }
+.date-btn:disabled { opacity: 0.3; }
+
+#date-picker {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 8px 14px;
+  font-size: 15px;
+  color-scheme: dark;
+}
+
+/* ---- Settings ---- */
+.settings-group {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.settings-group h3 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-row:last-child { border-bottom: none; }
+
+/* ---- Recipe ---- */
+.sub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0 16px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--orange);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.recipe-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recipe-card-left h4 { font-size: 16px; font-weight: 600; }
+.recipe-card-left p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+.recipe-card-right { text-align: right; }
+.recipe-card-kcal { font-size: 15px; font-weight: 600; color: var(--orange); }
+.recipe-card-protein { font-size: 12px; color: var(--blue); }
+
+.recipe-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.recipe-actions button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.recipe-actions button.use {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+  font-weight: 600;
+}
+
+.recipe-summary {
+  background: var(--bg-input);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 12px 0;
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.recipe-summary .stat-val { font-size: 16px; font-weight: 700; display: block; }
+.recipe-summary .stat-label { font-size: 10px; color: var(--text-secondary); }
+
+.ingredient-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ingredient-row:last-child { border-bottom: none; }
+
+.ing-remove {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed;
+  top: calc(var(--safe-top) + 60px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--green);
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 200;
+  animation: toastIn 0.3s ease;
+}
+
+.toast.hidden { display: none; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ---- Recent Products Chips ---- */
+.section-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 4px;
+}
+
+.recent-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.recent-chips::-webkit-scrollbar { display: none; }
+
+.recent-chip {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.recent-chip:active { background: var(--bg-input); }
+
+.recent-chip-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.recent-chip-info {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ---- Portion Presets ---- */
+.portion-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.portion-btn {
+  padding: 8px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.portion-btn:active, .portion-btn.active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+}
+
+/* ---- History Tabs ---- */
+.history-tabs {
+  display: flex;
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 12px;
+}
+
+.htab {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.htab.active {
+  background: var(--orange);
+  color: #fff;
+}
+
+/* ---- Week Summary ---- */
+.week-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.week-card h4 {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+}
+
+.week-stats {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.week-stat {
+  text-align: center;
+}
+
+.week-stat .stat-val {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.week-stat .stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.week-day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+}
+
+.week-day-label {
+  width: 55px;
+  flex-shrink: 0;
+}
+
+.week-day-name {
+  font-size: 14px;
+  font-weight: 600;
+  display: block;
+}
+
+.week-day-date {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+}
+
+.week-day-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: 3px;
+  margin: 0 12px;
+  overflow: visible;
+  position: relative;
+}
+
+.week-day-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--orange);
+}
+
+.week-day-fill.over {
+  background: var(--red);
+}
+
+.week-day-goal {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.week-day-val {
+  font-size: 13px;
+  color: var(--text-secondary);
+  width: 65px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Utilities ---- */
+.hidden { display: none !important; }
+
+/* Scrollbar */
+#pages::-webkit-scrollbar { width: 0; }
+.modal-body::-webkit-scrollbar { width: 0; }

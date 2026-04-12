@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f97316">
+  <title>EssenTracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <h1 id="header-title">Heute</h1>
+      <button id="header-action" class="header-btn" style="display:none">+</button>
+    </header>
+
+    <!-- Pages -->
+    <main id="pages">
+      <!-- Scannen -->
+      <section id="page-scan" class="page">
+        <div id="scanner-container">
+          <div id="scanner-reader"></div>
+          <div id="scan-loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Suche Produkt...</p>
+          </div>
+        </div>
+        <button id="btn-manual-from-scan" class="btn-secondary" onclick="showModal('modal-manual')">Manuell eingeben</button>
+      </section>
+
+      <!-- Heute -->
+      <section id="page-today" class="page active">
+        <div id="today-summary">
+          <div class="rings-row">
+            <div class="ring-container">
+              <svg class="progress-ring" viewBox="0 0 100 100">
+                <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                <circle id="ring-kcal" class="ring-progress kcal" cx="50" cy="50" r="42"/>
+              </svg>
+              <div class="ring-label">
+                <span id="today-kcal" class="ring-value">0</span>
+                <span class="ring-unit">kcal</span>
+              </div>
+            </div>
+            <div class="ring-container">
+              <svg class="progress-ring" viewBox="0 0 100 100">
+                <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                <circle id="ring-protein" class="ring-progress protein" cx="50" cy="50" r="42"/>
+              </svg>
+              <div class="ring-label">
+                <span id="today-protein" class="ring-value">0g</span>
+                <span class="ring-unit">Protein</span>
+              </div>
+            </div>
+          </div>
+          <div class="macro-bars">
+            <div class="macro-bar-row">
+              <span class="macro-label">Kalorien</span>
+              <div class="macro-track"><div id="bar-kcal" class="macro-fill kcal"></div></div>
+              <span id="bar-kcal-text" class="macro-text">0/2000</span>
+            </div>
+            <div class="macro-bar-row">
+              <span class="macro-label">Protein</span>
+              <div class="macro-track"><div id="bar-protein" class="macro-fill protein"></div></div>
+              <span id="bar-protein-text" class="macro-text">0/120g</span>
+            </div>
+            <div class="macro-bar-row">
+              <span class="macro-label">Carbs</span>
+              <div class="macro-track"><div id="bar-carbs" class="macro-fill carbs"></div></div>
+              <span id="bar-carbs-text" class="macro-text">0/250g</span>
+            </div>
+            <div class="macro-bar-row">
+              <span class="macro-label">Fett</span>
+              <div class="macro-track"><div id="bar-fat" class="macro-fill fat"></div></div>
+              <span id="bar-fat-text" class="macro-text">0/70g</span>
+            </div>
+          </div>
+        </div>
+        <div id="recent-products-section" class="hidden">
+          <h3 class="section-header">Schnell hinzuf&uuml;gen</h3>
+          <div id="recent-products-list" class="recent-chips"></div>
+        </div>
+
+        <div id="today-entries">
+          <h3 id="entries-header">Eintr&auml;ge (0)</h3>
+          <div id="entries-list"></div>
+          <div id="entries-empty" class="empty-state">
+            <span class="empty-icon">&#127860;</span>
+            <p>Noch keine Eintr&auml;ge</p>
+            <p class="empty-sub">Scanne einen Barcode oder f&uuml;ge manuell hinzu.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Verlauf -->
+      <section id="page-history" class="page">
+        <!-- Toggle: Tag / Woche -->
+        <div class="history-tabs">
+          <button class="htab active" id="htab-day" onclick="switchHistoryTab('day')">Tag</button>
+          <button class="htab" id="htab-week" onclick="switchHistoryTab('week')">Woche</button>
+        </div>
+
+        <!-- Tagesansicht -->
+        <div id="history-day">
+          <div class="date-nav">
+            <button id="date-prev" class="date-btn">&larr;</button>
+            <input type="date" id="date-picker">
+            <button id="date-next" class="date-btn">&rarr;</button>
+          </div>
+          <div id="history-summary" class="rings-row"></div>
+          <div id="history-entries"></div>
+          <div id="history-empty" class="empty-state">
+            <span class="empty-icon">&#128466;</span>
+            <p>Keine Eintr&auml;ge an diesem Tag</p>
+          </div>
+        </div>
+
+        <!-- Wochenuebersicht -->
+        <div id="history-week" class="hidden">
+          <div id="week-summary"></div>
+          <div id="week-days"></div>
+        </div>
+      </section>
+
+      <!-- Einstellungen -->
+      <section id="page-settings" class="page">
+        <div class="settings-group">
+          <h3>Profil</h3>
+          <div class="field">
+            <label>Name (optional)</label>
+            <input type="text" id="settings-name" placeholder="Dein Name">
+          </div>
+        </div>
+        <div class="settings-group">
+          <h3>Tagesziele</h3>
+          <div class="field">
+            <label>Kalorien (kcal)</label>
+            <input type="number" id="settings-kcal" placeholder="2000" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Protein (g)</label>
+            <input type="number" id="settings-protein" placeholder="120" inputmode="numeric">
+          </div>
+          <button id="btn-save-settings" class="btn-primary" onclick="saveSettings()">Speichern</button>
+        </div>
+        <div class="settings-group">
+          <h3>Rezepte</h3>
+          <button class="btn-secondary full-width" onclick="showPage('page-recipes')">Rezepte verwalten</button>
+        </div>
+        <div class="settings-group">
+          <h3>Export</h3>
+          <button class="btn-secondary full-width" onclick="exportCSV()">Wochendaten als CSV exportieren</button>
+        </div>
+        <div class="settings-group">
+          <h3>Backup</h3>
+          <button class="btn-secondary full-width" onclick="doFullExport()" style="margin-bottom:8px">Alle Daten sichern (JSON)</button>
+          <label class="btn-secondary full-width" style="text-align:center;cursor:pointer;display:block">
+            Backup wiederherstellen
+            <input type="file" id="import-file" accept=".json" style="display:none" onchange="doFullImport(event)">
+          </label>
+        </div>
+        <div class="settings-group">
+          <h3>Info</h3>
+          <div class="info-row"><span>Version</span><span>1.0.0</span></div>
+          <div class="info-row"><span>Eintr&auml;ge gesamt</span><span id="info-entries">0</span></div>
+          <div class="info-row"><span>Rezepte</span><span id="info-recipes">0</span></div>
+        </div>
+      </section>
+
+      <!-- Rezepte (Sub-Page) -->
+      <section id="page-recipes" class="page">
+        <div class="sub-header">
+          <button class="back-btn" onclick="showPage('page-settings')">&larr; Zur&uuml;ck</button>
+          <button class="header-btn" onclick="showModal('modal-recipe')">+</button>
+        </div>
+        <div id="recipes-list"></div>
+        <div id="recipes-empty" class="empty-state">
+          <span class="empty-icon">&#128214;</span>
+          <p>Keine Rezepte</p>
+          <p class="empty-sub">Erstelle dein erstes Rezept mit dem + Button.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Tab Bar -->
+    <nav id="tab-bar">
+      <button class="tab" data-page="page-scan" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>
+        <span>Scannen</span>
+      </button>
+      <button class="tab active" data-page="page-today" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l3 1m0 0l-3 9a5 5 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5 5 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+        <span>Heute</span>
+      </button>
+      <button class="tab" data-page="page-history" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span>Verlauf</span>
+      </button>
+      <button class="tab" data-page="page-settings" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Einstellungen</span>
+      </button>
+    </nav>
+
+    <!-- Modal: Manuell eingeben -->
+    <div id="modal-manual" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-manual')">Abbrechen</button>
+          <h2>Manuell eingeben</h2>
+          <button id="btn-save-manual" class="modal-save" onclick="saveManualEntry()">Speichern</button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Produktname</label><input type="text" id="manual-name" placeholder="z.B. Haferflocken"></div>
+          <h4>N&auml;hrwerte pro 100g</h4>
+          <div class="field"><label>Kalorien (kcal)</label><input type="number" id="manual-kcal" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Protein (g)</label><input type="number" id="manual-protein" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Kohlenhydrate (g)</label><input type="number" id="manual-carbs" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Fett (g)</label><input type="number" id="manual-fat" inputmode="decimal" step="any"></div>
+          <h4>Menge</h4>
+          <div class="field"><label>Gramm</label><input type="number" id="manual-grams" inputmode="decimal" step="any"></div>
+          <div id="manual-preview" class="preview hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Produktdetail (nach Scan) -->
+    <div id="modal-product" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-product')">Abbrechen</button>
+          <h2>Produkt gefunden</h2>
+          <button class="modal-save" onclick="saveScannedProduct()">Hinzuf&uuml;gen</button>
+        </div>
+        <div class="modal-body">
+          <div id="product-name" class="product-title"></div>
+          <div class="nutrient-grid">
+            <div class="nutrient"><span class="nutrient-val" id="product-kcal">0</span><span class="nutrient-label">kcal/100g</span></div>
+            <div class="nutrient"><span class="nutrient-val protein" id="product-protein">0</span><span class="nutrient-label">Protein</span></div>
+            <div class="nutrient"><span class="nutrient-val carbs" id="product-carbs">0</span><span class="nutrient-label">Carbs</span></div>
+            <div class="nutrient"><span class="nutrient-val fat" id="product-fat">0</span><span class="nutrient-label">Fett</span></div>
+          </div>
+          <div class="field"><label>Gramm</label><input type="number" id="product-grams" inputmode="decimal" step="any" placeholder="Menge in Gramm"></div>
+          <div id="product-total" class="preview hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Rezept erstellen -->
+    <div id="modal-recipe" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-recipe')">Abbrechen</button>
+          <h2>Neues Rezept</h2>
+          <button class="modal-save" onclick="saveRecipe()">Speichern</button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Rezeptname</label><input type="text" id="recipe-name" placeholder="z.B. Protein-Bowl"></div>
+          <div id="recipe-summary" class="recipe-summary"></div>
+          <h4>Zutaten</h4>
+          <div id="recipe-ingredients"></div>
+          <button class="btn-secondary full-width" onclick="addRecipeIngredient()">+ Zutat hinzuf&uuml;gen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Zutat f&uuml;r Rezept -->
+    <div id="modal-ingredient" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-ingredient')">Abbrechen</button>
+          <h2>Zutat</h2>
+          <button class="modal-save" onclick="confirmIngredient()">Hinzuf&uuml;gen</button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Name</label><input type="text" id="ing-name"></div>
+          <div class="field"><label>kcal/100g</label><input type="number" id="ing-kcal" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Protein/100g</label><input type="number" id="ing-protein" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Carbs/100g</label><input type="number" id="ing-carbs" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Fett/100g</label><input type="number" id="ing-fat" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Gramm</label><input type="number" id="ing-grams" inputmode="decimal" step="any"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Eintrag bearbeiten -->
+    <div id="modal-edit" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-edit')">Abbrechen</button>
+          <h2>Eintrag bearbeiten</h2>
+          <button class="modal-save" onclick="saveEditedEntry()">Speichern</button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Produktname</label><input type="text" id="edit-name"></div>
+          <h4>N&auml;hrwerte pro 100g</h4>
+          <div class="field"><label>Kalorien (kcal)</label><input type="number" id="edit-kcal" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Protein (g)</label><input type="number" id="edit-protein" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Kohlenhydrate (g)</label><input type="number" id="edit-carbs" inputmode="decimal" step="any"></div>
+          <div class="field"><label>Fett (g)</label><input type="number" id="edit-fat" inputmode="decimal" step="any"></div>
+          <h4>Menge</h4>
+          <div class="field"><label>Gramm</label><input type="number" id="edit-grams" inputmode="decimal" step="any"></div>
+          <div id="edit-preview" class="preview hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Schnell hinzufuegen (letztes Produkt) -->
+    <div id="modal-quick" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-quick')">Abbrechen</button>
+          <h2>Schnell hinzuf&uuml;gen</h2>
+          <button class="modal-save" onclick="saveQuickEntry()">Hinzuf&uuml;gen</button>
+        </div>
+        <div class="modal-body">
+          <div id="quick-product-name" class="product-title"></div>
+          <div class="nutrient-grid">
+            <div class="nutrient"><span class="nutrient-val" id="quick-kcal">0</span><span class="nutrient-label">kcal/100g</span></div>
+            <div class="nutrient"><span class="nutrient-val protein" id="quick-protein">0</span><span class="nutrient-label">Protein</span></div>
+            <div class="nutrient"><span class="nutrient-val carbs" id="quick-carbs">0</span><span class="nutrient-label">Carbs</span></div>
+            <div class="nutrient"><span class="nutrient-val fat" id="quick-fat">0</span><span class="nutrient-label">Fett</span></div>
+          </div>
+          <h4>Portionsvorlagen</h4>
+          <div id="portion-presets" class="portion-presets"></div>
+          <div class="field"><label>Gramm</label><input type="number" id="quick-grams" inputmode="decimal" step="any"></div>
+          <div id="quick-total" class="preview hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,15 +1,15 @@
 const CACHE_NAME = 'essentracker-v3';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/db.js',
-  '/js/app.js',
-  '/js/scanner.js',
-  '/js/ui.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  './',
+  './index.html',
+  './css/style.css',
+  './js/db.js',
+  './js/app.js',
+  './js/scanner.js',
+  './js/ui.js',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
 ];
 

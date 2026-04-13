@@ -19,6 +19,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
+  // Load theme before anything renders
+  const settings = await getSettings();
+  applyTheme(settings.theme || 'dark');
+  applyUnits(settings.units || 'metric');
+
+  // Check onboarding — if needed, show overlay and wait
+  if (typeof checkOnboarding === 'function') {
+    const needsOnboarding = await checkOnboarding();
+    if (needsOnboarding) return; // onboarding will call initMainApp() when done
+  }
+
+  initMainApp();
+});
+
+async function initMainApp() {
   const actionBtn = document.getElementById('header-action');
   actionBtn.style.display = 'flex';
   actionBtn.onclick = () => showModal('modal-manual');
@@ -65,12 +80,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Product search
   let searchTimer = null;
-  let searchController = null;
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimer);
-      if (searchController) searchController.abort();
       const q = searchInput.value.trim();
       if (q.length < 2) {
         document.getElementById('search-results').innerHTML = '';
@@ -80,7 +93,76 @@ document.addEventListener('DOMContentLoaded', async () => {
       searchTimer = setTimeout(() => searchProducts(q), 300);
     });
   }
-});
+
+  // Caffeine quick buttons
+  if (typeof renderCaffeineQuickButtons === 'function') renderCaffeineQuickButtons();
+
+  // Notifications check
+  if (typeof checkPendingNotifications === 'function') checkPendingNotifications();
+
+  // Update notification toggle states
+  updateNotificationToggles();
+}
+
+async function updateNotificationToggles() {
+  const settings = await getSettings();
+  const dailyBtn = document.getElementById('btn-toggle-daily');
+  const weeklyBtn = document.getElementById('btn-toggle-weekly');
+  if (dailyBtn) dailyBtn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
+  if (weeklyBtn) weeklyBtn.textContent = settings.weeklySummaryEnabled ? 'An' : 'Aus';
+}
+
+// ---- Theme / Units ----
+
+function applyTheme(theme) {
+  document.body.classList.toggle('light-theme', theme === 'light');
+  const sel = document.getElementById('settings-theme');
+  if (sel) sel.value = theme;
+  // Save preference
+  getSettings().then(s => {
+    if (s.theme !== theme) {
+      s.theme = theme;
+      saveSettingsData(s);
+    }
+  });
+}
+
+function applyUnits(units) {
+  const label = document.getElementById('weight-unit-label');
+  if (label) label.textContent = units === 'imperial' ? 'lbs' : 'kg';
+  const sel = document.getElementById('settings-units');
+  if (sel) sel.value = units;
+  getSettings().then(s => {
+    if (s.units !== units) {
+      s.units = units;
+      saveSettingsData(s);
+    }
+  });
+}
+
+function kgToLbs(kg) { return kg * 2.20462; }
+function lbsToKg(lbs) { return lbs / 2.20462; }
+function cmToFtIn(cm) {
+  const inches = cm / 2.54;
+  return { ft: Math.floor(inches / 12), in: Math.round(inches % 12) };
+}
+
+function resetOnboarding() {
+  // Clear user profile so onboarding shows again
+  getUserProfile().then(profile => {
+    if (profile) {
+      // Delete profile to trigger onboarding
+      const tx = db.transaction('userProfile', 'readwrite');
+      tx.objectStore('userProfile').clear();
+      tx.oncomplete = () => {
+        showToast('Onboarding wird beim naechsten Laden angezeigt');
+        location.reload();
+      };
+    } else {
+      location.reload();
+    }
+  });
+}
 
 // ---- Meal Selector ----
 
@@ -126,6 +208,15 @@ async function refreshTodayView() {
   const totalCarbs = entries.reduce((s, e) => s + e.totalCarbs, 0);
   const totalFat = entries.reduce((s, e) => s + e.totalFat, 0);
 
+  // Extended nutrient totals
+  const totalSugar = entries.reduce((s, e) => s + (e.totalSugar || 0), 0);
+  const totalFiber = entries.reduce((s, e) => s + (e.totalFiber || 0), 0);
+  const totalSatFat = entries.reduce((s, e) => s + (e.totalSaturatedFat || 0), 0);
+  const totalSodium = entries.reduce((s, e) => s + (e.totalSodium || 0), 0);
+  const totalCalcium = entries.reduce((s, e) => s + (e.totalCalcium || 0), 0);
+  const totalIron = entries.reduce((s, e) => s + (e.totalIron || 0), 0);
+  const totalVitaminD = entries.reduce((s, e) => s + (e.totalVitaminD || 0), 0);
+
   // Rings
   document.getElementById('today-kcal').textContent = Math.round(totalKcal);
   document.getElementById('today-protein').textContent = Math.round(totalProtein) + 'g';
@@ -143,11 +234,29 @@ async function refreshTodayView() {
     remainingEl.className = 'over';
   }
 
-  // Bars
+  // Main macro bars
   updateMacroBar('kcal', totalKcal, settings.dailyKcal, '');
   updateMacroBar('protein', totalProtein, settings.dailyProtein, 'g');
-  updateMacroBar('carbs', totalCarbs, 250, 'g');
-  updateMacroBar('fat', totalFat, 70, 'g');
+  updateMacroBar('carbs', totalCarbs, settings.dailyCarbs || 250, 'g');
+  updateMacroBar('fat', totalFat, settings.dailyFat || 70, 'g');
+
+  // Extended nutrient bars
+  updateExtendedBar('sugar', totalSugar, settings.dailySugar || 25, 'g');
+  updateExtendedBar('fiber', totalFiber, settings.dailyFiber || 25, 'g');
+  updateExtendedBar('satfat', totalSatFat, settings.dailySaturatedFat || 20, 'g');
+  updateExtendedBar('sodium', totalSodium, settings.dailySodium || 2300, 'mg');
+  updateExtendedBar('calcium', totalCalcium, settings.dailyCalcium || 1000, 'mg');
+  updateExtendedBar('iron', totalIron, settings.dailyIron || 15, 'mg');
+  updateExtendedBar('vitamind', totalVitaminD, settings.dailyVitaminD || 20, '\u00B5g');
+
+  // Sugar traffic light
+  updateSugarTrafficLight(totalSugar);
+
+  // Score ring
+  if (typeof calculateDayScore === 'function') {
+    const { score } = calculateDayScore(entries, settings);
+    renderScoreRing('score-ring-container', score);
+  }
 
   // Entry count
   document.getElementById('entries-header').textContent = `Eintr\u00E4ge (${entries.length})`;
@@ -165,10 +274,36 @@ async function refreshTodayView() {
     renderGroupedEntries(entries, list);
   }
 
-  // Recent products, water, streak
+  // Recent products, water, streaks, caffeine, achievements
   await refreshRecentProducts();
   await refreshWaterDisplay();
-  await refreshStreak();
+  await refreshStreaks();
+  if (typeof refreshCaffeineDisplay === 'function') await refreshCaffeineDisplay();
+}
+
+function updateExtendedBar(name, current, goal, unit) {
+  const fill = document.getElementById(`bar-${name}`);
+  const text = document.getElementById(`bar-${name}-text`);
+  if (fill) {
+    const ratio = goal > 0 ? Math.min(current / goal, 1) : 0;
+    fill.style.width = (ratio * 100) + '%';
+  }
+  if (text) {
+    if (unit === '\u00B5g') {
+      text.textContent = `${current.toFixed(1)}/${goal}${unit}`;
+    } else {
+      text.textContent = `${Math.round(current)}/${Math.round(goal)}${unit}`;
+    }
+  }
+}
+
+function updateSugarTrafficLight(totalSugar) {
+  const dot = document.getElementById('sugar-traffic-light');
+  if (!dot) return;
+  dot.className = 'traffic-dot';
+  if (totalSugar < 25) dot.classList.add('green');
+  else if (totalSugar < 50) dot.classList.add('orange');
+  else dot.classList.add('red');
 }
 
 function renderGroupedEntries(entries, container, opts = {}) {
@@ -242,18 +377,48 @@ async function refreshWaterDisplay() {
   fill.style.maxWidth = (ratio * 100) + '%';
 }
 
-// ---- Streak ----
+// ---- Streaks ----
 
-async function refreshStreak() {
+async function refreshStreaks() {
   const all = await getAllEntries();
+  const settings = await getSettings();
+
+  // Logging streak
+  const loggingStreak = typeof calculateLoggingStreak === 'function'
+    ? calculateLoggingStreak(all)
+    : calculateBasicStreak(all);
+
   const badge = document.getElementById('streak-badge');
   const countEl = document.getElementById('streak-count');
+  if (loggingStreak >= 2) {
+    badge.classList.remove('hidden');
+    countEl.textContent = loggingStreak;
+  } else {
+    badge.classList.add('hidden');
+  }
 
-  // Group by date
+  // Goal streak
+  const goalBadge = document.getElementById('goal-streak-badge');
+  const goalCountEl = document.getElementById('goal-streak-count');
+  if (typeof calculateGoalStreak === 'function' && goalBadge) {
+    const goalStreak = calculateGoalStreak(all, settings);
+    if (goalStreak >= 2) {
+      goalBadge.classList.remove('hidden');
+      goalCountEl.textContent = goalStreak;
+    } else {
+      goalBadge.classList.add('hidden');
+    }
+
+    // Check achievements
+    if (typeof checkAndAwardAchievements === 'function') {
+      checkAndAwardAchievements(loggingStreak, goalStreak);
+    }
+  }
+}
+
+function calculateBasicStreak(allEntries) {
   const dates = new Set();
-  all.forEach(e => dates.add(e.date.split('T')[0]));
-
-  // Count consecutive days backwards from today
+  allEntries.forEach(e => dates.add(e.date.split('T')[0]));
   let streak = 0;
   const d = new Date();
   while (true) {
@@ -265,17 +430,7 @@ async function refreshStreak() {
       break;
     }
   }
-
-  if (streak >= 2) {
-    badge.classList.remove('hidden');
-    countEl.textContent = streak;
-    // Milestone toasts
-    if ([7, 14, 30, 60, 90].includes(streak)) {
-      showToast(`\u{1F525} ${streak} Tage Streak! Weiter so!`);
-    }
-  } else {
-    badge.classList.add('hidden');
-  }
+  return streak;
 }
 
 // ---- Recent Products ----
@@ -381,6 +536,10 @@ async function saveQuickEntry() {
     proteinPer100: quickProduct.proteinPer100 || 0,
     carbsPer100: quickProduct.carbsPer100 || 0,
     fatPer100: quickProduct.fatPer100 || 0,
+    sugarPer100: quickProduct.sugarPer100 || 0,
+    fiberPer100: quickProduct.fiberPer100 || 0,
+    sodiumPer100: quickProduct.sodiumPer100 || 0,
+    saturatedFatPer100: quickProduct.saturatedFatPer100 || 0,
     grams: grams,
     meal: getSelectedMeal('quick-meal-selector')
   });
@@ -410,6 +569,16 @@ async function openEditModal(entryId) {
   document.getElementById('edit-carbs').value = entry.carbsPer100;
   document.getElementById('edit-fat').value = entry.fatPer100;
   document.getElementById('edit-grams').value = entry.grams;
+
+  // Extended nutrients
+  const sugarEl = document.getElementById('edit-sugar');
+  const fiberEl = document.getElementById('edit-fiber');
+  const satfatEl = document.getElementById('edit-satfat');
+  const sodiumEl = document.getElementById('edit-sodium');
+  if (sugarEl) sugarEl.value = entry.sugarPer100 || '';
+  if (fiberEl) fiberEl.value = entry.fiberPer100 || '';
+  if (satfatEl) satfatEl.value = entry.saturatedFatPer100 || '';
+  if (sodiumEl) sodiumEl.value = entry.sodiumPer100 || '';
 
   showModal('modal-edit');
   updateEditPreview();
@@ -447,6 +616,10 @@ async function saveEditedEntry() {
   editingEntry.proteinPer100 = parseFloat(document.getElementById('edit-protein').value) || 0;
   editingEntry.carbsPer100 = parseFloat(document.getElementById('edit-carbs').value) || 0;
   editingEntry.fatPer100 = parseFloat(document.getElementById('edit-fat').value) || 0;
+  editingEntry.sugarPer100 = parseFloat(document.getElementById('edit-sugar')?.value) || 0;
+  editingEntry.fiberPer100 = parseFloat(document.getElementById('edit-fiber')?.value) || 0;
+  editingEntry.saturatedFatPer100 = parseFloat(document.getElementById('edit-satfat')?.value) || 0;
+  editingEntry.sodiumPer100 = parseFloat(document.getElementById('edit-sodium')?.value) || 0;
   editingEntry.grams = grams;
   editingEntry.meal = getSelectedMeal('edit-meal-selector');
 
@@ -476,6 +649,10 @@ async function saveManualEntry() {
     proteinPer100: parseFloat(document.getElementById('manual-protein').value) || 0,
     carbsPer100: parseFloat(document.getElementById('manual-carbs').value) || 0,
     fatPer100: parseFloat(document.getElementById('manual-fat').value) || 0,
+    sugarPer100: parseFloat(document.getElementById('manual-sugar')?.value) || 0,
+    fiberPer100: parseFloat(document.getElementById('manual-fiber')?.value) || 0,
+    saturatedFatPer100: parseFloat(document.getElementById('manual-satfat')?.value) || 0,
+    sodiumPer100: parseFloat(document.getElementById('manual-sodium')?.value) || 0,
     grams: grams,
     meal: getSelectedMeal('manual-meal-selector')
   });
@@ -538,7 +715,11 @@ async function searchProducts(query) {
           kcalPer100: kcal,
           proteinPer100: protein,
           carbsPer100: carbs,
-          fatPer100: fat
+          fatPer100: fat,
+          sugarPer100: n['sugars_100g'] || 0,
+          fiberPer100: n['fiber_100g'] || 0,
+          sodiumPer100: (n['sodium_100g'] || 0) * 1000,
+          saturatedFatPer100: n['saturated-fat_100g'] || 0
         };
         hideModal('modal-search');
         document.getElementById('product-cache-badge').classList.add('hidden');
@@ -567,6 +748,10 @@ async function copyDayToToday() {
       proteinPer100: e.proteinPer100,
       carbsPer100: e.carbsPer100,
       fatPer100: e.fatPer100,
+      sugarPer100: e.sugarPer100 || 0,
+      fiberPer100: e.fiberPer100 || 0,
+      sodiumPer100: e.sodiumPer100 || 0,
+      saturatedFatPer100: e.saturatedFatPer100 || 0,
       grams: e.grams,
       meal: e.meal || 'snacks'
     });
@@ -595,6 +780,10 @@ async function repeatYesterday() {
       proteinPer100: e.proteinPer100,
       carbsPer100: e.carbsPer100,
       fatPer100: e.fatPer100,
+      sugarPer100: e.sugarPer100 || 0,
+      fiberPer100: e.fiberPer100 || 0,
+      sodiumPer100: e.sodiumPer100 || 0,
+      saturatedFatPer100: e.saturatedFatPer100 || 0,
       grams: e.grams,
       meal: e.meal || 'snacks'
     });
@@ -611,13 +800,19 @@ let currentHistoryTab = 'day';
 
 function switchHistoryTab(tab) {
   currentHistoryTab = tab;
-  document.getElementById('htab-day').classList.toggle('active', tab === 'day');
-  document.getElementById('htab-week').classList.toggle('active', tab === 'week');
-  document.getElementById('history-day').classList.toggle('hidden', tab !== 'day');
-  document.getElementById('history-week').classList.toggle('hidden', tab !== 'week');
+  ['day', 'week', 'calendar', 'stats'].forEach(t => {
+    const btn = document.getElementById(`htab-${t}`);
+    const panel = document.getElementById(`history-${t}`);
+    if (btn) btn.classList.toggle('active', t === tab);
+    if (panel) panel.classList.toggle('hidden', t !== tab);
+  });
 
   if (tab === 'day') refreshHistoryView();
-  else refreshWeekView();
+  else if (tab === 'week') refreshWeekView();
+  else if (tab === 'calendar' && typeof refreshCalendarView === 'function') {
+    refreshCalendarView();
+  }
+  else if (tab === 'stats' && typeof refreshStatsView === 'function') refreshStatsView(7);
 }
 
 async function refreshHistoryView() {
@@ -724,8 +919,8 @@ async function refreshWeekView() {
     <div class="week-card">
       <h3 class="section-header">Letzte 7 Tage</h3>
       <div class="week-stats">
-        <div class="week-stat"><span class="stat-val" style="color:var(--orange)">${Math.round(avgKcal)}</span><span class="stat-label">&#216; kcal/Tag</span></div>
-        <div class="week-stat"><span class="stat-val" style="color:var(--blue)">${Math.round(avgProtein)}g</span><span class="stat-label">&#216; Protein</span></div>
+        <div class="week-stat"><span class="stat-val" style="color:var(--orange)">${Math.round(avgKcal)}</span><span class="stat-label">\u00D8 kcal/Tag</span></div>
+        <div class="week-stat"><span class="stat-val" style="color:var(--blue)">${Math.round(avgProtein)}g</span><span class="stat-label">\u00D8 Protein</span></div>
         <div class="week-stat"><span class="stat-val" style="color:var(--text-secondary)">${Math.round(totalKcal)}</span><span class="stat-label">Gesamt kcal</span></div>
       </div>
     </div>
@@ -827,7 +1022,7 @@ function renderRecipeIngredients() {
     row.innerHTML = `
       <div>
         <strong>${escapeHtml(ing.name)}</strong>
-        <span style="font-size:12px;color:var(--text-secondary);margin-left:8px;">${ing.grams}g — ${Math.round(ing.kcalPer100 * ing.grams / 100)} kcal</span>
+        <span style="font-size:12px;color:var(--text-secondary);margin-left:8px;">${ing.grams}g \u2014 ${Math.round(ing.kcalPer100 * ing.grams / 100)} kcal</span>
       </div>
       <button class="ing-remove" onclick="removeIngredient(${i})">&#10005;</button>
     `;
@@ -896,6 +1091,38 @@ async function loadSettingsView() {
   document.getElementById('settings-protein').value = settings.dailyProtein || 120;
   document.getElementById('settings-water').value = settings.dailyWater || 8;
 
+  // Extended goals
+  const carbsEl = document.getElementById('settings-carbs');
+  const fatEl = document.getElementById('settings-fat');
+  const sugarEl = document.getElementById('settings-sugar');
+  const fiberEl = document.getElementById('settings-fiber');
+  const satfatEl = document.getElementById('settings-satfat');
+  const sodiumEl = document.getElementById('settings-sodium');
+  const calciumEl = document.getElementById('settings-calcium');
+  const ironEl = document.getElementById('settings-iron');
+  const vitamindEl = document.getElementById('settings-vitamind');
+  const caffeineEl = document.getElementById('settings-caffeine');
+
+  if (carbsEl) carbsEl.value = settings.dailyCarbs || 250;
+  if (fatEl) fatEl.value = settings.dailyFat || 70;
+  if (sugarEl) sugarEl.value = settings.dailySugar || 25;
+  if (fiberEl) fiberEl.value = settings.dailyFiber || 25;
+  if (satfatEl) satfatEl.value = settings.dailySaturatedFat || 20;
+  if (sodiumEl) sodiumEl.value = settings.dailySodium || 2300;
+  if (calciumEl) calciumEl.value = settings.dailyCalcium || 1000;
+  if (ironEl) ironEl.value = settings.dailyIron || 15;
+  if (vitamindEl) vitamindEl.value = settings.dailyVitaminD || 20;
+  if (caffeineEl) caffeineEl.value = settings.dailyCaffeine || 400;
+
+  // Theme + Units
+  const themeEl = document.getElementById('settings-theme');
+  if (themeEl) themeEl.value = settings.theme || 'dark';
+  const unitsEl = document.getElementById('settings-units');
+  if (unitsEl) unitsEl.value = settings.units || 'metric';
+
+  // Notification toggles
+  updateNotificationToggles();
+
   const entries = await getAllEntries();
   const recipes = await getAllRecipes();
   document.getElementById('info-entries').textContent = entries.length;
@@ -909,11 +1136,23 @@ async function loadSettingsView() {
 }
 
 async function saveSettings() {
+  const current = await getSettings();
   const settings = {
+    ...current,
     userName: document.getElementById('settings-name').value.trim(),
     dailyKcal: parseInt(document.getElementById('settings-kcal').value) || 2000,
     dailyProtein: parseInt(document.getElementById('settings-protein').value) || 120,
-    dailyWater: parseInt(document.getElementById('settings-water').value) || 8
+    dailyWater: parseInt(document.getElementById('settings-water').value) || 8,
+    dailyCarbs: parseInt(document.getElementById('settings-carbs')?.value) || 250,
+    dailyFat: parseInt(document.getElementById('settings-fat')?.value) || 70,
+    dailySugar: parseInt(document.getElementById('settings-sugar')?.value) || 25,
+    dailyFiber: parseInt(document.getElementById('settings-fiber')?.value) || 25,
+    dailySaturatedFat: parseInt(document.getElementById('settings-satfat')?.value) || 20,
+    dailySodium: parseInt(document.getElementById('settings-sodium')?.value) || 2300,
+    dailyCalcium: parseInt(document.getElementById('settings-calcium')?.value) || 1000,
+    dailyIron: parseInt(document.getElementById('settings-iron')?.value) || 15,
+    dailyVitaminD: parseInt(document.getElementById('settings-vitamind')?.value) || 20,
+    dailyCaffeine: parseInt(document.getElementById('settings-caffeine')?.value) || 400
   };
 
   await saveSettingsData(settings);
@@ -926,8 +1165,12 @@ async function saveSettings() {
 
 async function saveWeightEntry() {
   const input = document.getElementById('settings-weight');
-  const weight = parseFloat(input.value);
+  let weight = parseFloat(input.value);
   if (!weight || weight <= 0) { showToast('Bitte Gewicht eingeben'); return; }
+
+  // Convert if imperial
+  const settings = await getSettings();
+  if (settings.units === 'imperial') weight = lbsToKg(weight);
 
   const today = new Date().toISOString().split('T')[0];
   await saveWeight(today, weight);
@@ -938,6 +1181,8 @@ async function saveWeightEntry() {
 
 async function renderWeightChart() {
   const weights = await getAllWeights();
+  const settings = await getSettings();
+  const isImperial = settings.units === 'imperial';
   const trendEl = document.getElementById('weight-trend');
   const chartEl = document.getElementById('weight-chart');
 
@@ -947,22 +1192,23 @@ async function renderWeightChart() {
     return;
   }
 
-  // Trend: current weight + 7-day change
   const latest = weights[weights.length - 1];
+  const latestVal = isImperial ? kgToLbs(latest.weight) : latest.weight;
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weekAgoStr = weekAgo.toISOString().split('T')[0];
   const weekAgoWeight = weights.find(w => w.date <= weekAgoStr);
-  const delta = weekAgoWeight ? (latest.weight - weekAgoWeight.weight) : 0;
+  const deltaKg = weekAgoWeight ? (latest.weight - weekAgoWeight.weight) : 0;
+  const delta = isImperial ? kgToLbs(deltaKg) : deltaKg;
   const deltaStr = delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
   const deltaColor = delta > 0 ? 'var(--red)' : delta < 0 ? 'var(--green)' : 'var(--text-secondary)';
+  const unitLabel = isImperial ? 'lbs' : 'kg';
 
   trendEl.innerHTML = `
-    <div><span class="stat-val" style="color:var(--orange)">${latest.weight.toFixed(1)}</span><span class="stat-label">Aktuell (kg)</span></div>
+    <div><span class="stat-val" style="color:var(--orange)">${latestVal.toFixed(1)}</span><span class="stat-label">Aktuell (${unitLabel})</span></div>
     <div><span class="stat-val" style="color:${deltaColor}">${deltaStr}</span><span class="stat-label">7 Tage</span></div>
   `;
 
-  // Chart: last 30 entries
   const chartData = weights.slice(-30);
   if (chartData.length < 2) {
     chartEl.innerHTML = '';
@@ -974,21 +1220,21 @@ async function renderWeightChart() {
   const plotW = w - padding.left - padding.right;
   const plotH = h - padding.top - padding.bottom;
 
-  const vals = chartData.map(d => d.weight);
+  const vals = chartData.map(d => isImperial ? kgToLbs(d.weight) : d.weight);
   const minW = Math.floor(Math.min(...vals) - 1);
   const maxW = Math.ceil(Math.max(...vals) + 1);
   const range = maxW - minW || 1;
 
   const points = chartData.map((d, i) => {
+    const val = isImperial ? kgToLbs(d.weight) : d.weight;
     const x = padding.left + (i / (chartData.length - 1)) * plotW;
-    const y = padding.top + (1 - (d.weight - minW) / range) * plotH;
+    const y = padding.top + (1 - (val - minW) / range) * plotH;
     return { x, y, ...d };
   });
 
   const polyline = points.map(p => `${p.x},${p.y}`).join(' ');
   const area = `${points[0].x},${padding.top + plotH} ${polyline} ${points[points.length - 1].x},${padding.top + plotH}`;
 
-  // Grid lines + labels
   let gridSvg = '';
   const steps = 4;
   for (let i = 0; i <= steps; i++) {
@@ -998,7 +1244,6 @@ async function renderWeightChart() {
     gridSvg += `<text x="${padding.left - 4}" y="${y + 3}" text-anchor="end" class="chart-label">${val.toFixed(0)}</text>`;
   }
 
-  // Date labels
   const labelIndices = [0, Math.floor(chartData.length / 2), chartData.length - 1];
   labelIndices.forEach(i => {
     if (points[i]) {
@@ -1022,9 +1267,9 @@ async function exportCSV() {
 
   const weekEntries = entries.filter(e => new Date(e.date) >= weekAgo).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  let csv = 'Datum;Produkt;Gramm;Kalorien;Protein;Kohlenhydrate;Fett\n';
+  let csv = 'Datum;Produkt;Gramm;Kalorien;Protein;Kohlenhydrate;Fett;Zucker;Ballaststoffe\n';
   weekEntries.forEach(e => {
-    csv += `${new Date(e.date).toLocaleDateString('de-DE')};${e.productName};${Math.round(e.grams)};${Math.round(e.totalKcal)};${Math.round(e.totalProtein)};${Math.round(e.totalCarbs)};${Math.round(e.totalFat)}\n`;
+    csv += `${new Date(e.date).toLocaleDateString('de-DE')};${e.productName};${Math.round(e.grams)};${Math.round(e.totalKcal)};${Math.round(e.totalProtein)};${Math.round(e.totalCarbs)};${Math.round(e.totalFat)};${Math.round(e.totalSugar || 0)};${Math.round(e.totalFiber || 0)}\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

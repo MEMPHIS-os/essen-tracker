@@ -1,0 +1,47 @@
+/* Photo Scanner Tab */
+.photo-container { display: flex; flex-direction: column; align-items: center; padding: 20px; gap: 16px; }
+
+#photo-preview { max-width: 100%; max-height: 300px; object-fit: cover; border-radius: 14px; }
+#photo-preview.hidden { display: none; }
+
+.photo-capture-btn {
+  width: 100%; max-width: 300px; padding: 20px; font-size: 18px; font-weight: bold;
+  background: #f97316; color: white; border: none; border-radius: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.photo-capture-btn:active { transform: scale(0.97); }
+
+#photo-file-input { display: none; }
+
+/* Processing Overlay */
+#photo-processing {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 0;
+}
+#photo-processing.hidden { display: none; }
+#photo-status { color: #888; font-size: 14px; }
+
+/* Results Form */
+#photo-results { width: 100%; }
+#photo-results.hidden { display: none; }
+
+.photo-result-form { display: flex; flex-direction: column; gap: 8px; }
+.photo-result-form label { font-size: 13px; color: #888; margin-top: 4px; }
+.photo-result-form .input {
+  width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333;
+  border-radius: 10px; color: #f5f5f5; font-size: 16px;
+}
+
+.photo-source-badge {
+  display: inline-block; padding: 4px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: bold; margin-bottom: 12px;
+  background: rgba(59,130,246,0.2); color: #3b82f6;
+}
+
+/* Collapsible in photo form */
+.photo-result-form details { margin: 8px 0; }
+.photo-result-form summary {
+  cursor: pointer; color: #f97316; font-size: 14px;
+  padding: 8px 0; list-style: none;
+}
+.photo-result-form summary::before { content: '\u25B6 '; font-size: 10px; }
+.photo-result-form details[open] summary::before { content: '\u25BC '; }

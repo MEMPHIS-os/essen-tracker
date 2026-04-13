@@ -3,7 +3,7 @@
 // ============================================
 
 const DB_NAME = 'EssenTrackerDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let db = null;
 
@@ -46,6 +46,20 @@ function openDB() {
 
       if (!database.objectStoreNames.contains('waterLog')) {
         database.createObjectStore('waterLog', { keyPath: 'date' });
+      }
+
+      // v4: UserProfile, Koffein, Achievements
+      if (!database.objectStoreNames.contains('userProfile')) {
+        database.createObjectStore('userProfile', { keyPath: 'id' });
+      }
+
+      if (!database.objectStoreNames.contains('caffeineLog')) {
+        const cl = database.createObjectStore('caffeineLog', { keyPath: 'id' });
+        cl.createIndex('date', 'date', { unique: false });
+      }
+
+      if (!database.objectStoreNames.contains('achievements')) {
+        database.createObjectStore('achievements', { keyPath: 'key' });
       }
     };
 
@@ -116,10 +130,18 @@ async function addEntry(entry) {
   entry.id = entry.id || crypto.randomUUID();
   entry.date = entry.date || new Date().toISOString();
   entry.meal = entry.meal || autoDetectMeal();
-  entry.totalKcal = (entry.kcalPer100 * entry.grams) / 100;
-  entry.totalProtein = (entry.proteinPer100 * entry.grams) / 100;
-  entry.totalCarbs = (entry.carbsPer100 * entry.grams) / 100;
-  entry.totalFat = (entry.fatPer100 * entry.grams) / 100;
+  const g = entry.grams;
+  entry.totalKcal = ((entry.kcalPer100 || 0) * g) / 100;
+  entry.totalProtein = ((entry.proteinPer100 || 0) * g) / 100;
+  entry.totalCarbs = ((entry.carbsPer100 || 0) * g) / 100;
+  entry.totalFat = ((entry.fatPer100 || 0) * g) / 100;
+  entry.totalSugar = ((entry.sugarPer100 || 0) * g) / 100;
+  entry.totalFiber = ((entry.fiberPer100 || 0) * g) / 100;
+  entry.totalSodium = ((entry.sodiumPer100 || 0) * g) / 100;
+  entry.totalSaturatedFat = ((entry.saturatedFatPer100 || 0) * g) / 100;
+  entry.totalVitaminD = ((entry.vitaminDPer100 || 0) * g) / 100;
+  entry.totalCalcium = ((entry.calciumPer100 || 0) * g) / 100;
+  entry.totalIron = ((entry.ironPer100 || 0) * g) / 100;
   await dbPut('entries', entry);
 
   // Automatisch in "Letzte Produkte" speichern
@@ -129,6 +151,10 @@ async function addEntry(entry) {
     proteinPer100: entry.proteinPer100,
     carbsPer100: entry.carbsPer100,
     fatPer100: entry.fatPer100,
+    sugarPer100: entry.sugarPer100 || 0,
+    fiberPer100: entry.fiberPer100 || 0,
+    sodiumPer100: entry.sodiumPer100 || 0,
+    saturatedFatPer100: entry.saturatedFatPer100 || 0,
     lastGrams: entry.grams,
     lastUsed: Date.now()
   });
@@ -137,10 +163,18 @@ async function addEntry(entry) {
 }
 
 async function updateEntry(entry) {
-  entry.totalKcal = (entry.kcalPer100 * entry.grams) / 100;
-  entry.totalProtein = (entry.proteinPer100 * entry.grams) / 100;
-  entry.totalCarbs = (entry.carbsPer100 * entry.grams) / 100;
-  entry.totalFat = (entry.fatPer100 * entry.grams) / 100;
+  const g = entry.grams;
+  entry.totalKcal = ((entry.kcalPer100 || 0) * g) / 100;
+  entry.totalProtein = ((entry.proteinPer100 || 0) * g) / 100;
+  entry.totalCarbs = ((entry.carbsPer100 || 0) * g) / 100;
+  entry.totalFat = ((entry.fatPer100 || 0) * g) / 100;
+  entry.totalSugar = ((entry.sugarPer100 || 0) * g) / 100;
+  entry.totalFiber = ((entry.fiberPer100 || 0) * g) / 100;
+  entry.totalSodium = ((entry.sodiumPer100 || 0) * g) / 100;
+  entry.totalSaturatedFat = ((entry.saturatedFatPer100 || 0) * g) / 100;
+  entry.totalVitaminD = ((entry.vitaminDPer100 || 0) * g) / 100;
+  entry.totalCalcium = ((entry.calciumPer100 || 0) * g) / 100;
+  entry.totalIron = ((entry.ironPer100 || 0) * g) / 100;
   await dbPut('entries', entry);
   return entry;
 }
@@ -254,12 +288,62 @@ async function addRecipeAsEntries(recipe) {
 
 async function getSettings() {
   const result = await dbGet('settings', 'userGoals');
-  return result || { key: 'userGoals', dailyKcal: 2000, dailyProtein: 120, dailyWater: 8, userName: '' };
+  const defaults = {
+    key: 'userGoals', dailyKcal: 2000, dailyProtein: 120, dailyWater: 8, userName: '',
+    dailyCarbs: 250, dailyFat: 70, dailySugar: 25, dailyFiber: 25,
+    dailySodium: 2300, dailySaturatedFat: 20, dailyCalcium: 1000,
+    dailyIron: 15, dailyVitaminD: 20, dailyCaffeine: 400
+  };
+  return result ? { ...defaults, ...result } : defaults;
 }
 
 async function saveSettingsData(settings) {
   settings.key = 'userGoals';
   return dbPut('settings', settings);
+}
+
+// ---- User Profile ----
+
+async function getUserProfile() {
+  return dbGet('userProfile', 'main');
+}
+
+async function saveUserProfile(profile) {
+  profile.id = 'main';
+  return dbPut('userProfile', profile);
+}
+
+// ---- Caffeine Log ----
+
+async function addCaffeineEntry(entry) {
+  entry.id = entry.id || crypto.randomUUID();
+  entry.date = entry.date || new Date().toISOString().split('T')[0];
+  entry.time = entry.time || new Date().toTimeString().slice(0, 5);
+  await dbPut('caffeineLog', entry);
+  return entry;
+}
+
+async function getCaffeineForDate(dateStr) {
+  const all = await dbGetAll('caffeineLog');
+  return all.filter(e => e.date === dateStr);
+}
+
+async function deleteCaffeineEntry(id) {
+  return dbDelete('caffeineLog', id);
+}
+
+// ---- Achievements ----
+
+async function getAchievement(key) {
+  return dbGet('achievements', key);
+}
+
+async function saveAchievement(key) {
+  return dbPut('achievements', { key, dateEarned: new Date().toISOString() });
+}
+
+async function getAllAchievements() {
+  return dbGetAll('achievements');
 }
 
 // ---- Full Backup ----
@@ -272,10 +356,14 @@ async function exportFullBackup() {
   const weights = await dbGetAll('weights');
   const barcodeCache = await dbGetAll('barcodeCache');
   const waterLog = await dbGetAll('waterLog');
+  const userProfile = await getUserProfile();
+  const caffeineLog = await dbGetAll('caffeineLog');
+  const achievements = await getAllAchievements();
   return JSON.stringify({
     entries, recipes, settings, recentProducts,
     weights, barcodeCache, waterLog,
-    exportDate: new Date().toISOString(), version: 3
+    userProfile, caffeineLog, achievements,
+    exportDate: new Date().toISOString(), version: 4
   }, null, 2);
 }
 
@@ -288,4 +376,7 @@ async function importFullBackup(jsonStr) {
   if (data.weights) for (const w of data.weights) await dbPut('weights', w);
   if (data.barcodeCache) for (const b of data.barcodeCache) await dbPut('barcodeCache', b);
   if (data.waterLog) for (const l of data.waterLog) await dbPut('waterLog', l);
+  if (data.userProfile) await dbPut('userProfile', data.userProfile);
+  if (data.caffeineLog) for (const c of data.caffeineLog) await dbPut('caffeineLog', c);
+  if (data.achievements) for (const a of data.achievements) await dbPut('achievements', a);
 }

@@ -1252,6 +1252,194 @@ html, body {
   font-family: system-ui, sans-serif;
 }
 
+/* ---- Score Ring ---- */
+#score-section { text-align: center; margin-bottom: 12px; }
+.score-grade { font-size: 14px; margin-top: 4px; font-weight: 600; }
+.score-ring-fill { transition: stroke-dashoffset 0.8s ease; }
+
+/* ---- Streak Badge (expanded) ---- */
+.streak-row { display: flex; gap: 16px; justify-content: center; margin: 8px 0; }
+.streak-item { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #ccc; }
+.streak-item strong { color: #f97316; font-size: 16px; }
+
+/* ---- Achievement Toast ---- */
+.achievement-toast {
+  position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+  background: #1a1a1a; border: 2px solid #f97316; border-radius: 16px;
+  padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+  z-index: 9999; transition: top 0.5s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.achievement-toast.show { top: calc(env(safe-area-inset-top) + 20px); }
+.achievement-toast-emoji { font-size: 36px; }
+.achievement-toast-text { display: flex; flex-direction: column; }
+.achievement-toast-text strong { color: #f5f5f5; font-size: 16px; }
+.achievement-toast-text span { color: #f97316; font-size: 13px; }
+
+/* ---- Achievement Gallery ---- */
+#achievements-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px; }
+.achievement-card {
+  background: #1a1a1a; border-radius: 14px; padding: 16px; text-align: center;
+  border: 1px solid #2a2a2a; transition: transform 0.2s;
+}
+.achievement-card.earned { border-color: #f97316; }
+.achievement-card.locked { opacity: 0.4; }
+.achievement-emoji { font-size: 32px; margin-bottom: 8px; }
+.achievement-label { font-size: 13px; font-weight: 600; color: #f5f5f5; }
+.achievement-date { font-size: 11px; color: #888; margin-top: 4px; }
+
+/* ---- Caffeine Section ---- */
+.caffeine-section { background: #1a1a1a; border-radius: 14px; padding: 14px; margin: 12px 0; }
+.caffeine-header {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.caffeine-header-left { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.caffeine-total-badge { font-size: 13px; color: #888; }
+.caffeine-body { padding-top: 12px; }
+.caffeine-body.hidden { display: none; }
+
+#caffeine-quick-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.caffeine-quick-btn {
+  background: #2a2a2a; border: 1px solid #333; border-radius: 10px;
+  padding: 8px 12px; color: #f5f5f5; font-size: 13px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.caffeine-quick-btn span { font-size: 11px; color: #888; }
+.caffeine-quick-btn.custom { border-style: dashed; }
+.caffeine-quick-btn:active { transform: scale(0.95); }
+
+.caffeine-bar-track { height: 8px; background: #2a2a2a; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+.caffeine-bar-fill { height: 100%; border-radius: 4px; transition: min-width 0.4s ease, max-width 0.4s ease; }
+.caffeine-bar-fill.green { background: #22c55e; }
+.caffeine-bar-fill.orange { background: #f97316; }
+.caffeine-bar-fill.red { background: #ef4444; }
+#caffeine-progress-label { font-size: 12px; color: #888; text-align: center; }
+
+.caffeine-entry {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  border-bottom: 1px solid #2a2a2a; font-size: 13px; color: #ccc;
+}
+.caffeine-time { color: #888; font-size: 11px; margin-left: auto; }
+.caffeine-delete { background: none; border: none; color: #ef4444; font-size: 16px; cursor: pointer; padding: 4px 8px; }
+
+/* ---- Extended Nutrients ---- */
+.collapsible-section { margin: 8px 0; }
+.collapsible-section summary {
+  cursor: pointer; color: #f97316; font-size: 14px;
+  padding: 8px 0; list-style: none; user-select: none;
+}
+.collapsible-section summary::before { content: '\25B6 '; font-size: 10px; }
+.collapsible-section[open] summary::before { content: '\25BC '; }
+
+.extended-nutrients { padding: 8px 0; }
+.ext-nutrient-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.ext-nutrient-label { flex: 0 0 100px; font-size: 13px; color: #ccc; }
+.ext-nutrient-bar { flex: 1; height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; }
+.ext-nutrient-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.ext-nutrient-fill.low { background: #555; }
+.ext-nutrient-fill.good { background: #22c55e; }
+.ext-nutrient-fill.over { background: #f97316; }
+.ext-nutrient-value { flex: 0 0 70px; text-align: right; font-size: 12px; color: #888; }
+
+/* Sugar Traffic Light */
+.sugar-traffic { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.sugar-dot { width: 12px; height: 12px; border-radius: 50%; }
+.sugar-dot.green { background: #22c55e; }
+.sugar-dot.orange { background: #f97316; }
+.sugar-dot.red { background: #ef4444; }
+.sugar-text { font-size: 12px; color: #888; }
+.sugar-info-btn { background: none; border: none; color: #3b82f6; font-size: 14px; cursor: pointer; margin-left: 4px; }
+
+/* ---- Calendar ---- */
+#calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px 0;
+}
+.cal-header { text-align: center; font-size: 11px; color: #888; padding: 4px; font-weight: 600; }
+.cal-cell {
+  text-align: center; padding: 8px 4px; border-radius: 8px; cursor: pointer;
+  background: #1a1a1a; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.cal-cell.empty { background: transparent; cursor: default; }
+.cal-cell.today { border: 2px solid #f97316; }
+.cal-cell:active:not(.empty) { background: #2a2a2a; }
+.cal-day { font-size: 13px; color: #f5f5f5; }
+.cal-dot { width: 6px; height: 6px; border-radius: 50%; }
+.cal-dot.good { background: #22c55e; }
+.cal-dot.okay { background: #f97316; }
+.cal-dot.bad { background: #ef4444; }
+.cal-dot.no-data { background: #333; }
+
+.calendar-nav { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+.calendar-nav button { background: #2a2a2a; border: none; color: #f5f5f5; padding: 8px 14px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+#calendar-month-label { font-size: 16px; font-weight: 600; }
+
+/* ---- Statistics ---- */
+.stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #1a1a1a; border-radius: 12px; padding: 14px; text-align: center; }
+.stat-val { font-size: 20px; font-weight: bold; color: #f5f5f5; }
+.stat-label { font-size: 12px; color: #888; margin-top: 4px; }
+.trend { font-size: 14px; }
+
+.stats-chart { width: 100%; height: auto; margin: 8px 0; }
+.chart-section { margin: 16px 0; }
+.chart-section h4 { font-size: 14px; color: #ccc; margin-bottom: 8px; }
+
+.best-worst { display: flex; align-items: center; gap: 8px; padding: 10px; background: #1a1a1a; border-radius: 10px; margin: 8px 0; font-size: 13px; color: #ccc; }
+.best-worst.warn { border-left: 3px solid #f97316; }
+.bw-icon { font-size: 18px; }
+
+.period-toggle { display: flex; gap: 0; margin-bottom: 12px; border-radius: 10px; overflow: hidden; }
+.period-btn {
+  flex: 1; padding: 8px; text-align: center; font-size: 14px; font-weight: 600;
+  background: #1a1a1a; color: #888; border: none; cursor: pointer;
+}
+.period-btn.active { background: #f97316; color: white; }
+
+/* ---- PDF Month Picker ---- */
+.pdf-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.pdf-row input[type="month"] { flex: 1; padding: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 10px; color: #f5f5f5; font-size: 14px; }
+
+/* ---- Notification Settings ---- */
+.notif-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+.notif-label { font-size: 14px; color: #ccc; }
+.notif-toggle {
+  width: 50px; height: 28px; border-radius: 14px; border: none;
+  background: #333; position: relative; cursor: pointer; transition: background 0.3s;
+}
+.notif-toggle.on { background: #f97316; }
+.notif-toggle::after {
+  content: ''; position: absolute; width: 22px; height: 22px; border-radius: 50%;
+  background: white; top: 3px; left: 3px; transition: transform 0.3s;
+}
+.notif-toggle.on::after { transform: translateX(22px); }
+
+/* ---- Theme/Units Selects ---- */
+.settings-select {
+  width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333;
+  border-radius: 10px; color: #f5f5f5; font-size: 16px; appearance: auto;
+}
+
+/* ---- History Tab Buttons (4 tabs) ---- */
+.htab-row { display: flex; gap: 0; border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+.htab-btn {
+  flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+  background: #1a1a1a; color: #888; border: none; cursor: pointer;
+}
+.htab-btn.active { background: #f97316; color: white; }
+
+/* ---- 5-tab layout ---- */
+.tab-bar { gap: 0; }
+.tab { font-size: 10px; padding: 6px 0; }
+.tab svg { width: 22px; height: 22px; }
+
+/* ---- Source Badge on Entry Cards ---- */
+.source-badge {
+  display: inline-block; padding: 2px 6px; border-radius: 8px;
+  font-size: 9px; font-weight: bold; margin-left: 6px; vertical-align: middle;
+}
+.source-badge.ocr { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.source-badge.photo { background: rgba(168,85,247,0.2); color: #a855f7; }
+
 /* ---- Utilities ---- */
 .hidden { display: none !important; }
 

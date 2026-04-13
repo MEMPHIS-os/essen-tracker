@@ -14,7 +14,8 @@ function switchTab(tabBtn) {
   // Update header
   const titles = {
     'page-scan': 'Scannen',
-    'page-today': 'Heute',
+    'page-photo': 'Foto',
+    'page-today': 'Protokoll',
     'page-history': 'Verlauf',
     'page-settings': 'Einstellungen'
   };
@@ -46,6 +47,7 @@ function switchTab(tabBtn) {
   if (page === 'page-today') refreshTodayView();
   if (page === 'page-history') refreshHistoryView();
   if (page === 'page-settings') loadSettingsView();
+  if (page === 'page-photo' && typeof initPhotoTab === 'function') initPhotoTab();
 }
 
 function showPage(pageId) {
@@ -57,6 +59,10 @@ function showPage(pageId) {
   if (pageId === 'page-recipes') {
     document.getElementById('header-title').textContent = 'Rezepte';
     refreshRecipesView();
+  }
+  if (pageId === 'page-achievements') {
+    document.getElementById('header-title').textContent = 'Erfolge';
+    if (typeof renderAchievementsGallery === 'function') renderAchievementsGallery('achievements-gallery');
   }
 }
 
@@ -94,15 +100,23 @@ function showToast(message) {
   setTimeout(() => toast.classList.add('hidden'), 2000);
 }
 
+// ---- Collapsible Toggle ----
+
+function toggleCollapsible(header) {
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('.collapsible-arrow');
+  body.classList.toggle('hidden');
+  if (arrow) {
+    arrow.textContent = body.classList.contains('hidden') ? '\u25B6' : '\u25BC';
+  }
+}
+
 // ---- Haptic Feedback (iOS-kompatibel) ----
 
 function haptic() {
-  // navigator.vibrate() funktioniert nicht auf iOS Safari
-  // Stattdessen: kurzer visueller Flash als Feedback
   if ('vibrate' in navigator) {
     try { navigator.vibrate(15); } catch (e) {}
   }
-  // Visueller Flash-Effekt als Fallback (funktioniert ueberall)
   const flash = document.createElement('div');
   flash.style.cssText = 'position:fixed;inset:0;background:rgba(249,115,22,0.08);pointer-events:none;z-index:9999;';
   document.body.appendChild(flash);
@@ -130,10 +144,13 @@ function renderEntryCard(entry, opts = {}) {
   card.className = 'entry-card';
   card.dataset.id = entry.id;
 
+  // Source badge
+  const sourceBadge = entry.source ? `<span class="source-badge source-${entry.source}">${entry.source}</span>` : '';
+
   card.innerHTML = `
     <div class="entry-delete-bg">L&ouml;schen</div>
     <div class="entry-left">
-      <div class="entry-name">${escapeHtml(entry.productName)}</div>
+      <div class="entry-name">${sourceBadge}${escapeHtml(entry.productName)}</div>
       <div class="entry-grams">${Math.round(entry.grams)}g</div>
     </div>
     <div class="entry-right">
@@ -150,7 +167,6 @@ function renderEntryCard(entry, opts = {}) {
     setupSwipeToDelete(card, entry.id);
   }
 
-  // Tap to edit (only for today's cards with delete enabled)
   if (opts.canDelete !== false) {
     setupTapToEdit(card, entry.id);
   }
@@ -183,9 +199,7 @@ function setupTapToEdit(card, entryId) {
     }
   });
 
-  // Desktop click fallback
   card.addEventListener('click', (e) => {
-    // Only fire on desktop (no touch events)
     if ('ontouchstart' in window) return;
     openEditModal(entryId);
   });

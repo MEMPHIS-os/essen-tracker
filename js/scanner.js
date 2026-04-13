@@ -104,7 +104,11 @@ async function lookupProduct(barcode) {
         kcalPer100: cached.kcalPer100,
         proteinPer100: cached.proteinPer100,
         carbsPer100: cached.carbsPer100,
-        fatPer100: cached.fatPer100
+        fatPer100: cached.fatPer100,
+        sugarPer100: cached.sugarPer100 || 0,
+        fiberPer100: cached.fiberPer100 || 0,
+        sodiumPer100: cached.sodiumPer100 || 0,
+        saturatedFatPer100: cached.saturatedFatPer100 || 0
       };
       loading.classList.add('hidden');
       if (cacheBadge) cacheBadge.classList.remove('hidden');
@@ -133,7 +137,14 @@ async function lookupProduct(barcode) {
       kcalPer100: n['energy-kcal_100g'] || n['energy_100g'] || 0,
       proteinPer100: n['proteins_100g'] || 0,
       carbsPer100: n['carbohydrates_100g'] || 0,
-      fatPer100: n['fat_100g'] || 0
+      fatPer100: n['fat_100g'] || 0,
+      sugarPer100: n['sugars_100g'] || 0,
+      fiberPer100: n['fiber_100g'] || 0,
+      sodiumPer100: (n['sodium_100g'] || 0) * 1000,
+      saturatedFatPer100: n['saturated-fat_100g'] || 0,
+      vitaminDPer100: n['vitamin-d_100g'] || 0,
+      calciumPer100: (n['calcium_100g'] || 0) * 1000,
+      ironPer100: (n['iron_100g'] || 0) * 1000
     };
 
     // 3) Save to barcode cache for offline use
@@ -142,7 +153,11 @@ async function lookupProduct(barcode) {
       kcalPer100: currentProduct.kcalPer100,
       proteinPer100: currentProduct.proteinPer100,
       carbsPer100: currentProduct.carbsPer100,
-      fatPer100: currentProduct.fatPer100
+      fatPer100: currentProduct.fatPer100,
+      sugarPer100: currentProduct.sugarPer100,
+      fiberPer100: currentProduct.fiberPer100,
+      sodiumPer100: currentProduct.sodiumPer100,
+      saturatedFatPer100: currentProduct.saturatedFatPer100
     });
 
     loading.classList.add('hidden');
@@ -180,6 +195,13 @@ async function saveScannedProduct() {
     proteinPer100: currentProduct.proteinPer100,
     carbsPer100: currentProduct.carbsPer100,
     fatPer100: currentProduct.fatPer100,
+    sugarPer100: currentProduct.sugarPer100 || 0,
+    fiberPer100: currentProduct.fiberPer100 || 0,
+    sodiumPer100: currentProduct.sodiumPer100 || 0,
+    saturatedFatPer100: currentProduct.saturatedFatPer100 || 0,
+    vitaminDPer100: currentProduct.vitaminDPer100 || 0,
+    calciumPer100: currentProduct.calciumPer100 || 0,
+    ironPer100: currentProduct.ironPer100 || 0,
     grams: grams,
     meal: typeof getSelectedMeal === 'function' ? getSelectedMeal('product') : undefined
   });

@@ -10,12 +10,26 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/onboarding.css">
+  <link rel="stylesheet" href="css/photo.css">
+  <link rel="stylesheet" href="css/light.css">
 </head>
 <body>
+
+  <!-- Onboarding Overlay -->
+  <div id="onboarding-overlay" class="hidden">
+    <div class="ob-progress" id="ob-progress"></div>
+    <div id="onboarding-content"></div>
+    <div class="ob-nav">
+      <button id="onboarding-prev">Zur&uuml;ck</button>
+      <button id="onboarding-next">Weiter</button>
+    </div>
+  </div>
+
   <div id="app">
     <!-- Header -->
     <header id="header">
-      <h1 id="header-title">Heute</h1>
+      <h1 id="header-title">Protokoll</h1>
       <div class="header-actions">
         <button id="header-search" class="header-btn-ghost" style="display:none" onclick="showModal('modal-search')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -38,15 +52,43 @@
         <button id="btn-manual-from-scan" class="btn-secondary" onclick="showModal('modal-manual')">Manuell eingeben</button>
       </section>
 
-      <!-- Heute -->
+      <!-- Foto Scanner -->
+      <section id="page-photo" class="page">
+        <div class="photo-container">
+          <img id="photo-preview" class="hidden" alt="Vorschau">
+          <input type="file" id="photo-file-input" accept="image/*" capture="environment">
+          <button class="photo-capture-btn" onclick="openPhotoCapture()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Foto aufnehmen
+          </button>
+          <div id="photo-processing" class="hidden">
+            <div class="spinner"></div>
+            <p id="photo-status">Analysiere Bild...</p>
+          </div>
+          <div id="photo-results" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- Protokoll (Today) -->
       <section id="page-today" class="page active">
         <div id="today-summary">
-          <!-- Streak Badge -->
-          <div id="streak-badge" class="streak-container hidden">
-            <span class="streak-fire">&#128293;</span>
-            <span id="streak-count">0</span>
-            <span class="streak-label">Tage Streak</span>
+          <!-- Score Ring -->
+          <div id="score-ring-container" class="score-ring-section"></div>
+
+          <!-- Streak Badges -->
+          <div class="streak-row">
+            <div id="streak-badge" class="streak-container hidden">
+              <span class="streak-fire">&#128293;</span>
+              <span id="streak-count">0</span>
+              <span class="streak-label">Tage Streak</span>
+            </div>
+            <div id="goal-streak-badge" class="streak-container hidden">
+              <span class="streak-fire">&#127942;</span>
+              <span id="goal-streak-count">0</span>
+              <span class="streak-label">Ziel-Streak</span>
+            </div>
           </div>
+
           <div class="rings-row">
             <div class="ring-container">
               <svg class="progress-ring" viewBox="0 0 100 100">
@@ -95,6 +137,52 @@
               <span id="bar-fat-text" class="macro-text">0/70g</span>
             </div>
           </div>
+
+          <!-- Extended Nutrients (Collapsible) -->
+          <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+              <span>Erweiterte N&auml;hrwerte</span>
+              <span class="collapsible-arrow">&#9654;</span>
+            </div>
+            <div class="collapsible-body hidden" id="extended-nutrients-today">
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Zucker</span>
+                <div class="bar-track"><div id="bar-sugar" class="bar-fill sugar"></div></div>
+                <span id="bar-sugar-text" class="bar-value">0/25g</span>
+                <span id="sugar-traffic-light" class="traffic-dot green"></span>
+              </div>
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Ballaststoffe</span>
+                <div class="bar-track"><div id="bar-fiber" class="bar-fill fiber"></div></div>
+                <span id="bar-fiber-text" class="bar-value">0/25g</span>
+              </div>
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Ges&auml;ttigte F.</span>
+                <div class="bar-track"><div id="bar-satfat" class="bar-fill satfat"></div></div>
+                <span id="bar-satfat-text" class="bar-value">0/20g</span>
+              </div>
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Natrium</span>
+                <div class="bar-track"><div id="bar-sodium" class="bar-fill sodium"></div></div>
+                <span id="bar-sodium-text" class="bar-value">0/2300mg</span>
+              </div>
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Calcium</span>
+                <div class="bar-track"><div id="bar-calcium" class="bar-fill calcium"></div></div>
+                <span id="bar-calcium-text" class="bar-value">0/1000mg</span>
+              </div>
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Eisen</span>
+                <div class="bar-track"><div id="bar-iron" class="bar-fill iron"></div></div>
+                <span id="bar-iron-text" class="bar-value">0/15mg</span>
+              </div>
+              <div class="extended-nutrient-bar">
+                <span class="bar-label">Vitamin D</span>
+                <div class="bar-track"><div id="bar-vitamind" class="bar-fill vitamind"></div></div>
+                <span id="bar-vitamind-text" class="bar-value">0/20&micro;g</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Wassertracker -->
@@ -109,6 +197,20 @@
           <div class="water-progress-track">
             <div id="water-progress-fill" class="water-progress-fill"></div>
           </div>
+        </div>
+
+        <!-- Koffein-Tracker -->
+        <div id="caffeine-tracker" class="caffeine-section">
+          <div class="caffeine-header">
+            <span>&#9749; Koffein</span>
+            <span id="caffeine-total">0 / 400 mg</span>
+          </div>
+          <div class="caffeine-progress-track">
+            <div id="caffeine-progress-fill" class="caffeine-progress-fill"></div>
+          </div>
+          <div id="caffeine-quick-buttons" class="caffeine-quick-btns"></div>
+          <div id="caffeine-entries" class="caffeine-entries"></div>
+          <div id="caffeine-warning" class="caffeine-warning hidden">&#9888; Koffein nach 14 Uhr kann den Schlaf st&ouml;ren</div>
         </div>
 
         <div id="recent-products-section" class="hidden">
@@ -135,6 +237,8 @@
         <div class="history-tabs">
           <button class="htab active" id="htab-day" onclick="switchHistoryTab('day')">Tag</button>
           <button class="htab" id="htab-week" onclick="switchHistoryTab('week')">Woche</button>
+          <button class="htab" id="htab-calendar" onclick="switchHistoryTab('calendar')">Kalender</button>
+          <button class="htab" id="htab-stats" onclick="switchHistoryTab('stats')">Statistik</button>
         </div>
 
         <!-- Tagesansicht -->
@@ -158,6 +262,37 @@
           <div id="week-summary"></div>
           <div id="week-days"></div>
         </div>
+
+        <!-- Kalender -->
+        <div id="history-calendar" class="hidden">
+          <div class="cal-nav">
+            <button class="date-btn" onclick="calendarPrevMonth()">&larr;</button>
+            <span id="cal-month-label"></span>
+            <button class="date-btn" onclick="calendarNextMonth()">&rarr;</button>
+          </div>
+          <div id="calendar-grid" class="cal-grid"></div>
+          <div id="calendar-day-detail"></div>
+        </div>
+
+        <!-- Statistik -->
+        <div id="history-stats" class="hidden">
+          <div class="stats-period-selector">
+            <button class="htab active" onclick="refreshStatsView(7); this.parentElement.querySelectorAll('.htab').forEach(b=>b.classList.remove('active')); this.classList.add('active');">7 Tage</button>
+            <button class="htab" onclick="refreshStatsView(30); this.parentElement.querySelectorAll('.htab').forEach(b=>b.classList.remove('active')); this.classList.add('active');">30 Tage</button>
+          </div>
+          <div id="stats-summary" class="stats-grid"></div>
+          <h4 style="padding:0 16px;margin:16px 0 8px;">Kalorien-Verlauf</h4>
+          <div class="stats-chart-container">
+            <svg id="stats-kcal-chart" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <h4 style="padding:0 16px;margin:16px 0 8px;">Score-Verlauf</h4>
+          <div class="stats-chart-container">
+            <svg id="stats-score-chart" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div style="padding:16px;">
+            <button class="btn-secondary full-width" onclick="generateMonthlyPDF()">&#128196; Monatsbericht (PDF)</button>
+          </div>
+        </div>
       </section>
 
       <!-- Einstellungen -->
@@ -168,6 +303,7 @@
             <label>Name (optional)</label>
             <input type="text" id="settings-name" placeholder="Dein Name">
           </div>
+          <button class="btn-tertiary" onclick="resetOnboarding()" style="margin-top:8px;">Onboarding wiederholen</button>
         </div>
         <div class="settings-group">
           <h3>Tagesziele</h3>
@@ -180,15 +316,91 @@
             <input type="number" id="settings-protein" placeholder="120" inputmode="numeric">
           </div>
           <div class="field">
+            <label>Kohlenhydrate (g)</label>
+            <input type="number" id="settings-carbs" placeholder="250" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Fett (g)</label>
+            <input type="number" id="settings-fat" placeholder="70" inputmode="numeric">
+          </div>
+          <div class="field">
             <label>Wasser-Ziel (Glaeser)</label>
             <input type="number" id="settings-water" placeholder="8" inputmode="numeric">
+          </div>
+          <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+              <span>Erweiterte Ziele</span>
+              <span class="collapsible-arrow">&#9654;</span>
+            </div>
+            <div class="collapsible-body hidden">
+              <div class="field">
+                <label>Zucker (g)</label>
+                <input type="number" id="settings-sugar" placeholder="25" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Ballaststoffe (g)</label>
+                <input type="number" id="settings-fiber" placeholder="25" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Ges&auml;tt. Fetts&auml;uren (g)</label>
+                <input type="number" id="settings-satfat" placeholder="20" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Natrium (mg)</label>
+                <input type="number" id="settings-sodium" placeholder="2300" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Calcium (mg)</label>
+                <input type="number" id="settings-calcium" placeholder="1000" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Eisen (mg)</label>
+                <input type="number" id="settings-iron" placeholder="15" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Vitamin D (&micro;g)</label>
+                <input type="number" id="settings-vitamind" placeholder="20" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label>Koffein (mg)</label>
+                <input type="number" id="settings-caffeine" placeholder="400" inputmode="numeric">
+              </div>
+            </div>
           </div>
           <button id="btn-save-settings" class="btn-primary" onclick="saveSettings()">Speichern</button>
         </div>
         <div class="settings-group">
+          <h3>Erscheinungsbild</h3>
+          <div class="field">
+            <label>Design</label>
+            <select id="settings-theme" onchange="applyTheme(this.value)">
+              <option value="dark">Dunkel</option>
+              <option value="light">Hell</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Einheiten</label>
+            <select id="settings-units" onchange="applyUnits(this.value)">
+              <option value="metric">Metrisch (kg, cm)</option>
+              <option value="imperial">Imperial (lbs, ft/in)</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-group">
+          <h3>Benachrichtigungen</h3>
+          <div class="notification-toggle">
+            <span class="settings-label">T&auml;gliche Erinnerung</span>
+            <button id="btn-toggle-daily" class="toggle-btn" onclick="toggleDailyReminder()">Aus</button>
+          </div>
+          <div class="notification-toggle">
+            <span class="settings-label">Wochen-Zusammenfassung</span>
+            <button id="btn-toggle-weekly" class="toggle-btn" onclick="toggleWeeklySummary()">Aus</button>
+          </div>
+        </div>
+        <div class="settings-group">
           <h3>Gewicht</h3>
           <div class="field">
-            <label>Heutiges Gewicht (kg)</label>
+            <label>Heutiges Gewicht (<span id="weight-unit-label">kg</span>)</label>
             <div class="weight-input-row">
               <input type="number" id="settings-weight" inputmode="decimal" step="0.1" placeholder="z.B. 75.5">
               <button class="btn-weight-save" onclick="saveWeightEntry()">Speichern</button>
@@ -200,12 +412,14 @@
           </div>
         </div>
         <div class="settings-group">
-          <h3>Rezepte</h3>
-          <button class="btn-secondary full-width" onclick="showPage('page-recipes')">Rezepte verwalten</button>
+          <h3>Rezepte &amp; Erfolge</h3>
+          <button class="btn-secondary full-width" onclick="showPage('page-recipes')" style="margin-bottom:8px">Rezepte verwalten</button>
+          <button class="btn-secondary full-width" onclick="showPage('page-achievements')">Erfolge &amp; Abzeichen</button>
         </div>
         <div class="settings-group">
           <h3>Export</h3>
-          <button class="btn-secondary full-width" onclick="exportCSV()">Wochendaten als CSV exportieren</button>
+          <button class="btn-secondary full-width" onclick="exportCSV()" style="margin-bottom:8px">Wochendaten als CSV exportieren</button>
+          <button class="btn-secondary full-width" onclick="generateMonthlyPDF()">&#128196; Monatsbericht (PDF)</button>
         </div>
         <div class="settings-group">
           <h3>Backup</h3>
@@ -217,7 +431,7 @@
         </div>
         <div class="settings-group">
           <h3>Info</h3>
-          <div class="info-row"><span>Version</span><span>2.0.0</span></div>
+          <div class="info-row"><span>Version</span><span>3.0.0</span></div>
           <div class="info-row"><span>Eintr&auml;ge gesamt</span><span id="info-entries">0</span></div>
           <div class="info-row"><span>Rezepte</span><span id="info-recipes">0</span></div>
         </div>
@@ -236,6 +450,15 @@
           <p class="empty-sub">Erstelle dein erstes Rezept mit dem + Button.</p>
         </div>
       </section>
+
+      <!-- Achievements (Sub-Page) -->
+      <section id="page-achievements" class="page">
+        <div class="sub-header">
+          <button class="back-btn" onclick="showPage('page-settings')">&larr; Zur&uuml;ck</button>
+          <h2 style="font-size:18px;">Erfolge</h2>
+        </div>
+        <div id="achievements-gallery"></div>
+      </section>
     </main>
 
     <!-- Tab Bar -->
@@ -244,9 +467,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>
         <span>Scannen</span>
       </button>
+      <button class="tab" data-page="page-photo" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span>Foto</span>
+      </button>
       <button class="tab active" data-page="page-today" onclick="switchTab(this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6l3 1m0 0l-3 9a5 5 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5 5 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
-        <span>Heute</span>
+        <span>Protokoll</span>
       </button>
       <button class="tab" data-page="page-history" onclick="switchTab(this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -254,7 +481,7 @@
       </button>
       <button class="tab" data-page="page-settings" onclick="switchTab(this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        <span>Einstellungen</span>
+        <span>Mehr</span>
       </button>
     </nav>
 
@@ -280,6 +507,18 @@
           <div class="field"><label>Protein (g)</label><input type="number" id="manual-protein" inputmode="decimal" step="any"></div>
           <div class="field"><label>Kohlenhydrate (g)</label><input type="number" id="manual-carbs" inputmode="decimal" step="any"></div>
           <div class="field"><label>Fett (g)</label><input type="number" id="manual-fat" inputmode="decimal" step="any"></div>
+          <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+              <span>Erweiterte N&auml;hrwerte</span>
+              <span class="collapsible-arrow">&#9654;</span>
+            </div>
+            <div class="collapsible-body hidden">
+              <div class="field"><label>Zucker (g)</label><input type="number" id="manual-sugar" inputmode="decimal" step="any"></div>
+              <div class="field"><label>Ballaststoffe (g)</label><input type="number" id="manual-fiber" inputmode="decimal" step="any"></div>
+              <div class="field"><label>Ges&auml;tt. Fetts&auml;uren (g)</label><input type="number" id="manual-satfat" inputmode="decimal" step="any"></div>
+              <div class="field"><label>Natrium (mg)</label><input type="number" id="manual-sodium" inputmode="decimal" step="any"></div>
+            </div>
+          </div>
           <h4>Menge</h4>
           <div class="field"><label>Gramm</label><input type="number" id="manual-grams" inputmode="decimal" step="any"></div>
           <div id="manual-preview" class="preview hidden"></div>
@@ -335,7 +574,7 @@
       </div>
     </div>
 
-    <!-- Modal: Zutat f&uuml;r Rezept -->
+    <!-- Modal: Zutat fuer Rezept -->
     <div id="modal-ingredient" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -376,6 +615,18 @@
           <div class="field"><label>Protein (g)</label><input type="number" id="edit-protein" inputmode="decimal" step="any"></div>
           <div class="field"><label>Kohlenhydrate (g)</label><input type="number" id="edit-carbs" inputmode="decimal" step="any"></div>
           <div class="field"><label>Fett (g)</label><input type="number" id="edit-fat" inputmode="decimal" step="any"></div>
+          <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible(this)">
+              <span>Erweiterte N&auml;hrwerte</span>
+              <span class="collapsible-arrow">&#9654;</span>
+            </div>
+            <div class="collapsible-body hidden">
+              <div class="field"><label>Zucker (g)</label><input type="number" id="edit-sugar" inputmode="decimal" step="any"></div>
+              <div class="field"><label>Ballaststoffe (g)</label><input type="number" id="edit-fiber" inputmode="decimal" step="any"></div>
+              <div class="field"><label>Ges&auml;tt. Fetts&auml;uren (g)</label><input type="number" id="edit-satfat" inputmode="decimal" step="any"></div>
+              <div class="field"><label>Natrium (mg)</label><input type="number" id="edit-sodium" inputmode="decimal" step="any"></div>
+            </div>
+          </div>
           <h4>Menge</h4>
           <div class="field"><label>Gramm</label><input type="number" id="edit-grams" inputmode="decimal" step="any"></div>
           <div id="edit-preview" class="preview hidden"></div>
@@ -414,6 +665,21 @@
       </div>
     </div>
 
+    <!-- Modal: Koffein hinzufuegen -->
+    <div id="modal-caffeine" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-caffeine')">Abbrechen</button>
+          <h2>Koffein hinzuf&uuml;gen</h2>
+          <button class="modal-save" onclick="saveCustomCaffeine()">Hinzuf&uuml;gen</button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Getr&auml;nk</label><input type="text" id="caffeine-custom-name" placeholder="z.B. Matcha Latte"></div>
+          <div class="field"><label>Koffein (mg)</label><input type="number" id="caffeine-custom-mg" inputmode="numeric" placeholder="z.B. 80"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: Produktsuche -->
     <div id="modal-search" class="modal hidden">
       <div class="modal-content">
@@ -439,12 +705,21 @@
 
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
+
+    <!-- Achievement Toast -->
+    <div id="achievement-toast" class="achievement-toast hidden"></div>
   </div>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/db.js"></script>
   <script src="js/scanner.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/score.js"></script>
+  <script src="js/onboarding.js"></script>
+  <script src="js/caffeine.js"></script>
+  <script src="js/photo.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/notifications.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

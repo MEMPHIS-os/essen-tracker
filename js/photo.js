@@ -182,6 +182,87 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
   };
 }
 
+// Text-only variant: schaetzt Naehrwerte aus Gericht-Beschreibung
+async function analyzeDishWithGemini(description, apiKey) {
+  const prompt = `Du bist ein Ernaehrungs-Experte. Der User hat folgendes Gericht gegessen: "${description}".
+
+Schaetze realistische Naehrwerte fuer dieses Gericht basierend auf typischen Rezepten und Zutaten.
+
+Gib NUR valides JSON zurueck (kein Markdown, keine Erklaerung), mit diesen Feldern:
+{
+  "name": "Produktname auf Deutsch, kurz (max 30 Zeichen)",
+  "kcal": Zahl (pro 100g),
+  "protein": Zahl (g pro 100g),
+  "carbs": Zahl (g pro 100g),
+  "fat": Zahl (g pro 100g),
+  "sugar": Zahl (g pro 100g, 0 wenn unbekannt),
+  "fiber": Zahl (g pro 100g, 0 wenn unbekannt),
+  "saturatedFat": Zahl (g pro 100g, 0 wenn unbekannt),
+  "sodium": Zahl (mg pro 100g, 0 wenn unbekannt),
+  "portionDesc": "kurze deutsche Beschreibung der typischen Portion (max 40 Zeichen), z.B. '1 grosser Burrito', '1 Teller Spaghetti'",
+  "portionGrams": Zahl (typisches Gesamtgewicht einer normalen Portion in Gramm)
+}
+
+Regeln:
+- Naehrwerte IMMER pro 100g, NIE pro Portion
+- portionGrams = typische Portionsgroesse in Gramm fuer dieses Gericht
+- Wenn User eine Menge angibt (z.B. "500g Spaghetti"), dann portionGrams = diese Menge
+- Realistische Werte: Burrito ~220 kcal/100g, Spaghetti Bolognese ~150 kcal/100g, Pizza ~270 kcal/100g
+- Typische Portionen: Burrito 300-400g, Teller Pasta 300-400g, Pizza 250-350g, Salat 200-300g
+- Bei Unsicherheit lieber konservativ schaetzen
+
+Beispiel: "Barbecue Burrito" -> { "name": "Barbecue Burrito", "kcal": 220, "protein": 10, "carbs": 25, "fat": 9, "sugar": 4, "fiber": 3, "saturatedFat": 3, "sodium": 600, "portionDesc": "1 grosser Burrito", "portionGrams": 350 }
+
+Gib NUR das JSON zurueck, nichts davor oder danach.`;
+
+  const body = {
+    contents: [{
+      parts: [{ text: prompt }]
+    }],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 1024,
+      responseMimeType: 'application/json',
+      thinkingConfig: { thinkingBudget: 0 }
+    }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini: leere Antwort');
+
+  const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+  const parsed = JSON.parse(cleaned);
+
+  return {
+    name: parsed.name || '',
+    kcal: numOrZero(parsed.kcal),
+    protein: numOrZero(parsed.protein),
+    carbs: numOrZero(parsed.carbs),
+    fat: numOrZero(parsed.fat),
+    sugar: numOrZero(parsed.sugar),
+    fiber: numOrZero(parsed.fiber),
+    saturatedFat: numOrZero(parsed.saturatedFat),
+    sodium: numOrZero(parsed.sodium),
+    portionDesc: (parsed.portionDesc || '').toString().slice(0, 60),
+    portionGrams: numOrZero(parsed.portionGrams),
+    confidence: 1.0
+  };
+}
+
 function numOrZero(v) {
   const n = parseFloat(v);
   return isNaN(n) ? 0 : n;

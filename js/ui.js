@@ -108,6 +108,13 @@ function hideModal(id) {
   const preview = modal.querySelector('.preview');
   if (preview) preview.classList.add('hidden');
 
+  // Reset AI hint strip if present (manual modal)
+  const aiHint = modal.querySelector('.photo-portion-hint');
+  if (aiHint) {
+    aiHint.classList.add('hidden');
+    aiHint.innerHTML = '';
+  }
+
   // Reset meal selector if present
   if (typeof resetMealSelector === 'function') {
     const prefix = id.replace('modal-', '');

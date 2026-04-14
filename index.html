@@ -577,6 +577,11 @@
           <button id="btn-save-manual" class="modal-save" onclick="saveManualEntry()">Speichern</button>
         </div>
         <div class="modal-body">
+          <div class="ai-estimate-row">
+            <input type="text" id="manual-ai-input" placeholder="z.B. Barbecue Burrito" autocomplete="off">
+            <button id="manual-ai-btn" class="btn-ai-estimate" onclick="runManualAiEstimate()">KI-Sch&auml;tzung</button>
+          </div>
+          <div id="manual-ai-hint" class="photo-portion-hint hidden"></div>
           <div id="manual-meal-selector" class="meal-selector">
             <button class="meal-btn active" data-meal="auto">Auto</button>
             <button class="meal-btn" data-meal="fruehstueck">Fruehstueck</button>

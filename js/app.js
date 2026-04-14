@@ -643,6 +643,84 @@ async function saveEditedEntry() {
 
 // ---- Manual Entry ----
 
+async function runManualAiEstimate() {
+  const input = document.getElementById('manual-ai-input');
+  const btn = document.getElementById('manual-ai-btn');
+  const hint = document.getElementById('manual-ai-hint');
+  const description = (input?.value || '').trim();
+
+  if (!description) {
+    showToast('Bitte Gericht beschreiben');
+    return;
+  }
+
+  const settings = await getSettings();
+  const apiKey = settings?.geminiApiKey;
+  if (!apiKey) {
+    showToast('Bitte KI-Key in Einstellungen setzen');
+    return;
+  }
+
+  hint.classList.add('hidden');
+  hint.innerHTML = '';
+  const originalBtnText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Analysiere...';
+
+  try {
+    const parsed = await analyzeDishWithGemini(description, apiKey);
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+
+    const nameEl = document.getElementById('manual-name');
+    if (nameEl && !nameEl.value.trim() && parsed.name) {
+      nameEl.value = parsed.name;
+    }
+    setVal('manual-kcal', parsed.kcal || '');
+    setVal('manual-protein', parsed.protein || '');
+    setVal('manual-carbs', parsed.carbs || '');
+    setVal('manual-fat', parsed.fat || '');
+    setVal('manual-sugar', parsed.sugar || '');
+    setVal('manual-fiber', parsed.fiber || '');
+    setVal('manual-satfat', parsed.saturatedFat || '');
+    setVal('manual-sodium', parsed.sodium || '');
+    if (parsed.portionGrams > 0) {
+      setVal('manual-grams', parsed.portionGrams);
+    }
+
+    const portionText = parsed.portionDesc
+      ? `${escapeHtml(parsed.portionDesc)} ca. ${parsed.portionGrams || '?'}g`
+      : `ca. ${parsed.portionGrams || '?'}g`;
+    hint.innerHTML = `
+      <svg class="portion-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2v4"/>
+        <path d="M12 18v4"/>
+        <path d="M4.93 4.93l2.83 2.83"/>
+        <path d="M16.24 16.24l2.83 2.83"/>
+        <path d="M2 12h4"/>
+        <path d="M18 12h4"/>
+        <path d="M4.93 19.07l2.83-2.83"/>
+        <path d="M16.24 7.76l2.83-2.83"/>
+      </svg>
+      <div class="portion-text">
+        <strong>Erkannt:</strong> ${escapeHtml(parsed.name || description)} &middot; ${portionText}
+        <span class="portion-hint-sub">Werte pruefen und bei Bedarf anpassen.</span>
+      </div>
+    `;
+    hint.classList.remove('hidden');
+    haptic();
+  } catch (err) {
+    console.error('[AI Estimate] Fehler:', err);
+    showToast('Fehler bei KI-Schaetzung');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalBtnText;
+  }
+}
+
 async function saveManualEntry() {
   const name = document.getElementById('manual-name').value.trim();
   const kcal = parseFloat(document.getElementById('manual-kcal').value);

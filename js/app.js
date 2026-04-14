@@ -1173,6 +1173,17 @@ async function saveSettings() {
     dailyCaffeine: parseInt(document.getElementById('settings-caffeine')?.value) || 400
   };
 
+  // Gemini API Key: egal welcher Speichern-Button gedrueckt wird, Feldinhalt uebernehmen
+  const geminiEl = document.getElementById('settings-gemini-key');
+  if (geminiEl) {
+    const keyVal = geminiEl.value.trim();
+    if (keyVal) {
+      settings.geminiApiKey = keyVal;
+    } else {
+      delete settings.geminiApiKey;
+    }
+  }
+
   await saveSettingsData(settings);
   haptic();
   showToast('Einstellungen gespeichert!');
@@ -1187,10 +1198,32 @@ async function saveGeminiKey() {
     showToast('Key sieht ungueltig aus (beginnt mit AIza)');
     return;
   }
+
+  showToast('Teste Key...');
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'ok' }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 8, thinkingConfig: { thinkingBudget: 0 } }
+      })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData?.error?.message || `HTTP ${res.status}`;
+      showToast('Key ungueltig: ' + msg.slice(0, 60));
+      return;
+    }
+  } catch (e) {
+    showToast('Netzwerkfehler beim Test');
+    return;
+  }
+
   const current = await getSettings();
   await saveSettingsData({ ...current, geminiApiKey: key });
   haptic();
-  showToast('KI-Erkennung aktiviert!');
+  showToast('KI aktiviert und getestet!');
 }
 
 async function clearGeminiKey() {

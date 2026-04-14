@@ -148,7 +148,6 @@ function renderEntryCard(entry, opts = {}) {
   const sourceBadge = entry.source ? `<span class="source-badge source-${entry.source}">${entry.source}</span>` : '';
 
   card.innerHTML = `
-    <div class="entry-delete-bg">L&ouml;schen</div>
     <div class="entry-left">
       <div class="entry-name">${sourceBadge}${escapeHtml(entry.productName)}</div>
       <div class="entry-grams">${Math.round(entry.grams)}g</div>
@@ -221,19 +220,20 @@ function setupSwipeToDelete(card, entryId) {
   card.addEventListener('touchmove', (e) => {
     if (!swiping) return;
     currentX = e.touches[0].clientX;
-    const dx = Math.min(0, currentX - startX);
-    if (dx < -10) {
-      card.style.transform = `translateX(${Math.max(dx, -80)}px)`;
+    const dx = Math.max(0, currentX - startX);
+    if (dx > 10) {
+      card.style.transform = `translateX(${dx}px)`;
+      card.style.opacity = String(Math.max(0.3, 1 - dx / 300));
     }
   }, { passive: true });
 
   card.addEventListener('touchend', async () => {
     swiping = false;
-    card.style.transition = 'transform 0.2s ease';
+    card.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
     const dx = currentX - startX;
 
-    if (dx < -60) {
-      card.style.transform = 'translateX(-100%)';
+    if (dx > 80) {
+      card.style.transform = 'translateX(100%)';
       card.style.opacity = '0';
       haptic();
       setTimeout(async () => {
@@ -242,6 +242,7 @@ function setupSwipeToDelete(card, entryId) {
       }, 200);
     } else {
       card.style.transform = 'translateX(0)';
+      card.style.opacity = '1';
     }
   });
 }

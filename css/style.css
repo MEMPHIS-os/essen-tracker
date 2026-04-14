@@ -282,23 +282,6 @@ html, body {
 .entry-macro.c { color: var(--green); }
 .entry-macro.f { color: var(--red); }
 
-/* Swipe delete */
-.entry-delete-bg {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 80px;
-  background: var(--red);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 0 var(--radius) var(--radius) 0;
-}
-
 /* ---- Empty State ---- */
 .empty-state {
   text-align: center;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'essentracker-v8';
+const CACHE_NAME = 'essentracker-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -42,7 +42,7 @@ self.addEventListener('fetch', e => {
   const url = e.request.url;
 
   // Network-first for API calls
-  if (url.includes('openfoodfacts.org') || url.includes('api.edamam.com')) {
+  if (url.includes('openfoodfacts.org') || url.includes('api.edamam.com') || url.includes('generativelanguage.googleapis.com')) {
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))
     );

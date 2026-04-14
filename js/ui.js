@@ -4,6 +4,8 @@
 
 // ---- Tab Navigation ----
 
+let captureMode = 'barcode';
+
 function switchTab(tabBtn) {
   const page = tabBtn.dataset.page;
   showPage(page);
@@ -13,8 +15,7 @@ function switchTab(tabBtn) {
 
   // Update header
   const titles = {
-    'page-scan': 'Scannen',
-    'page-photo': 'Foto',
+    'page-scan': 'Erfassen',
     'page-today': 'Protokoll',
     'page-history': 'Verlauf',
     'page-settings': 'Einstellungen'
@@ -36,9 +37,14 @@ function switchTab(tabBtn) {
     searchBtn.style.display = (page === 'page-today') ? 'flex' : 'none';
   }
 
-  // Scanner management
+  // Capture tab: honour current capture mode
   if (page === 'page-scan') {
-    startScanner();
+    if (typeof initPhotoTab === 'function') initPhotoTab();
+    if (captureMode === 'barcode') {
+      startScanner();
+    } else {
+      stopScanner();
+    }
   } else {
     stopScanner();
   }
@@ -47,7 +53,28 @@ function switchTab(tabBtn) {
   if (page === 'page-today') refreshTodayView();
   if (page === 'page-history') refreshHistoryView();
   if (page === 'page-settings') loadSettingsView();
-  if (page === 'page-photo' && typeof initPhotoTab === 'function') initPhotoTab();
+}
+
+function setCaptureMode(mode) {
+  captureMode = mode;
+  const barcodeBtn = document.getElementById('capture-mode-barcode');
+  const photoBtn = document.getElementById('capture-mode-photo');
+  const barcodeView = document.getElementById('capture-barcode-view');
+  const photoView = document.getElementById('capture-photo-view');
+
+  if (mode === 'barcode') {
+    barcodeBtn.classList.add('active');
+    photoBtn.classList.remove('active');
+    barcodeView.classList.remove('hidden');
+    photoView.classList.add('hidden');
+    startScanner();
+  } else {
+    photoBtn.classList.add('active');
+    barcodeBtn.classList.remove('active');
+    photoView.classList.remove('hidden');
+    barcodeView.classList.add('hidden');
+    stopScanner();
+  }
 }
 
 function showPage(pageId) {

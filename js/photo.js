@@ -1,12 +1,15 @@
 // ============================================
-// Foto-Scanner — OCR + Edamam Fallback
+// Foto-Scanner - Gemini Vision (primary) + Tesseract Fallback
 // ============================================
 
 let photoParseResult = null;
 
 function initPhotoTab() {
   const input = document.getElementById('photo-file-input');
-  if (input) input.addEventListener('change', handlePhotoSelected);
+  if (input && !input.dataset.bound) {
+    input.addEventListener('change', handlePhotoSelected);
+    input.dataset.bound = '1';
+  }
 }
 
 function openPhotoCapture() {
@@ -20,37 +23,183 @@ async function handlePhotoSelected(event) {
   const preview = document.getElementById('photo-preview');
   const processing = document.getElementById('photo-processing');
   const results = document.getElementById('photo-results');
+  const status = document.getElementById('photo-status');
+  const hint = document.getElementById('photo-hint');
 
-  // Show preview
   const url = URL.createObjectURL(file);
   preview.src = url;
   preview.classList.remove('hidden');
+  if (hint) hint.classList.add('hidden');
   results.classList.add('hidden');
   processing.classList.remove('hidden');
 
+  let parsed = null;
+  let source = 'Manuell';
+
   try {
-    const parsed = await runOCR(preview);
-    if (parsed && parsed.confidence > 0.3) {
-      photoParseResult = parsed;
-      showPhotoResults(parsed, 'OCR');
-    } else {
-      // OCR failed or low confidence — show manual entry
-      photoParseResult = parsed || {};
-      showPhotoResults(photoParseResult, parsed ? 'OCR (unsicher)' : 'Manuell');
+    // 1) Try Gemini first if API key set
+    const settings = await getSettings();
+    const geminiKey = settings.geminiApiKey;
+
+    if (geminiKey) {
+      try {
+        if (status) status.textContent = 'KI analysiert Bild...';
+        parsed = await analyzeWithGemini(file, geminiKey);
+        if (parsed && parsed.kcal != null) {
+          source = 'KI';
+        } else {
+          parsed = null;
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini failed, falling back to Tesseract:', geminiErr);
+      }
+    }
+
+    // 2) Fallback: Tesseract OCR
+    if (!parsed) {
+      if (status) status.textContent = 'OCR analysiert Bild...';
+      const ocr = await runOCR(preview);
+      if (ocr && ocr.confidence > 0.3) {
+        parsed = ocr;
+        source = 'OCR';
+      } else {
+        parsed = ocr || {};
+        source = ocr ? 'OCR (unsicher)' : 'Manuell';
+      }
     }
   } catch (e) {
-    photoParseResult = {};
-    showPhotoResults({}, 'Manuell');
+    console.error('Photo analysis failed:', e);
+    parsed = {};
+    source = 'Manuell';
   } finally {
     processing.classList.add('hidden');
     event.target.value = '';
   }
+
+  photoParseResult = parsed || {};
+  showPhotoResults(photoParseResult, source);
 }
+
+// ============================================
+// Gemini Vision
+// ============================================
+
+async function analyzeWithGemini(file, apiKey) {
+  // Resize + base64-encode before sending (Gemini accepts up to ~20MB but smaller is faster)
+  const base64 = await resizeAndEncodeImage(file, 1024);
+
+  const prompt = `Du bist ein Ernaehrungs-Experte. Analysiere dieses Foto eines Lebensmittels oder einer Naehrwerttabelle.
+
+Gib NUR valides JSON zurueck (kein Markdown, keine Erklaerung), mit diesen Feldern pro 100g:
+{
+  "name": "Produktname",
+  "kcal": Zahl,
+  "protein": Zahl (g),
+  "carbs": Zahl (g),
+  "fat": Zahl (g),
+  "sugar": Zahl (g, 0 wenn unbekannt),
+  "fiber": Zahl (g, 0 wenn unbekannt),
+  "saturatedFat": Zahl (g, 0 wenn unbekannt),
+  "sodium": Zahl (mg, 0 wenn unbekannt)
+}
+
+Regeln:
+- Wenn eine Naehrwerttabelle sichtbar ist: extrahiere die Zahlen PRO 100g (nicht pro Portion!)
+- Wenn nur Essen sichtbar ist (kein Etikett): schaetze auf Basis typischer Werte fuer dieses Lebensmittel
+- Kein Feld raten, wenn du dir nicht sicher bist - setze 0
+- name auf Deutsch, kurz (max 30 Zeichen)
+- Gib NUR das JSON zurueck, nichts davor oder danach`;
+
+  const body = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: 'image/jpeg', data: base64 } }
+      ]
+    }],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 1024,
+      responseMimeType: 'application/json',
+      thinkingConfig: { thinkingBudget: 0 }
+    }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini: leere Antwort');
+
+  // Parse JSON (strip markdown fences if any)
+  const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+  const parsed = JSON.parse(cleaned);
+
+  return {
+    name: parsed.name || '',
+    kcal: numOrZero(parsed.kcal),
+    protein: numOrZero(parsed.protein),
+    carbs: numOrZero(parsed.carbs),
+    fat: numOrZero(parsed.fat),
+    sugar: numOrZero(parsed.sugar),
+    fiber: numOrZero(parsed.fiber),
+    saturatedFat: numOrZero(parsed.saturatedFat),
+    sodium: numOrZero(parsed.sodium),
+    confidence: 1.0
+  };
+}
+
+function numOrZero(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+async function resizeAndEncodeImage(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round(height * (maxDim / width));
+          width = maxDim;
+        } else {
+          width = Math.round(width * (maxDim / height));
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      URL.revokeObjectURL(img.src);
+      resolve(dataUrl.split(',')[1]); // strip "data:image/jpeg;base64,"
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ============================================
+// Tesseract OCR (Fallback)
+// ============================================
 
 async function runOCR(imageElement) {
   const status = document.getElementById('photo-status');
 
-  // Lazy-load Tesseract.js
   if (typeof Tesseract === 'undefined') {
     if (status) status.textContent = 'Lade OCR-Engine...';
     await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
@@ -85,14 +234,14 @@ function parseNutritionText(text) {
   let matches = 0;
 
   const patterns = [
-    { keys: ['brennwert', 'kalorien', 'energie', 'energy', 'calories', 'kcal'], field: 'kcal', unit: 'kcal' },
-    { keys: ['eiwei', 'protein', 'proteins'], field: 'protein', unit: 'g' },
-    { keys: ['kohlenhydrat', 'carbohydrate', 'carbs'], field: 'carbs', unit: 'g' },
-    { keys: ['davon zucker', 'sugars', 'zucker'], field: 'sugar', unit: 'g' },
-    { keys: ['fett', 'fat'], field: 'fat', unit: 'g' },
-    { keys: ['gesaettigte', 'saturated', 'davon gesaettigt'], field: 'saturatedFat', unit: 'g' },
-    { keys: ['ballaststoff', 'fibre', 'fiber'], field: 'fiber', unit: 'g' },
-    { keys: ['natrium', 'sodium', 'salz', 'salt'], field: 'sodium', unit: 'mg' }
+    { keys: ['brennwert', 'kalorien', 'energie', 'energy', 'calories', 'kcal'], field: 'kcal' },
+    { keys: ['eiwei', 'protein', 'proteins'], field: 'protein' },
+    { keys: ['kohlenhydrat', 'carbohydrate', 'carbs'], field: 'carbs' },
+    { keys: ['davon zucker', 'sugars', 'zucker'], field: 'sugar' },
+    { keys: ['fett', 'fat'], field: 'fat' },
+    { keys: ['gesaettigte', 'saturated', 'davon gesaettigt'], field: 'saturatedFat' },
+    { keys: ['ballaststoff', 'fibre', 'fiber'], field: 'fiber' },
+    { keys: ['natrium', 'sodium', 'salz', 'salt'], field: 'sodium' }
   ];
 
   const numberRegex = /(\d+\.?\d*)\s*(kcal|kj|g|mg|µg)?/gi;
@@ -103,11 +252,8 @@ function parseNutritionText(text) {
       if (p.keys.some(k => lower.includes(k))) {
         const nums = [...line.matchAll(numberRegex)];
         if (nums.length > 0) {
-          // Take the last number (usually the per-100g value in multi-column tables)
           let val = parseFloat(nums[nums.length - 1][1]);
-          // Convert kJ to kcal if needed
           if (p.field === 'kcal' && nums[nums.length - 1][2] === 'kj') val = Math.round(val / 4.184);
-          // Convert salt to sodium (mg)
           if ((lower.includes('salz') || lower.includes('salt')) && p.field === 'sodium') val = val * 400;
           result[p.field] = val;
           matches++;
@@ -120,15 +266,21 @@ function parseNutritionText(text) {
   return result;
 }
 
+// ============================================
+// Results Form
+// ============================================
+
 function showPhotoResults(parsed, source) {
   const results = document.getElementById('photo-results');
   results.classList.remove('hidden');
 
+  const badgeClass = source === 'KI' ? 'photo-source-badge ki' : 'photo-source-badge';
+
   results.innerHTML = `
-    <div class="photo-source-badge">${source}</div>
+    <div class="${badgeClass}">${source}${source === 'KI' ? ' - Gemini' : ''}</div>
     <div class="photo-result-form">
       <label>Produktname</label>
-      <input type="text" id="photo-name" placeholder="z.B. Joghurt" class="input">
+      <input type="text" id="photo-name" placeholder="z.B. Joghurt" class="input" value="${escapeHtml(parsed.name || '')}">
       <label>Kalorien (kcal/100g)</label>
       <input type="number" id="photo-kcal" class="input" value="${parsed.kcal || ''}" inputmode="decimal">
       <label>Protein (g/100g)</label>
@@ -196,10 +348,10 @@ async function savePhotoEntry() {
 
   haptic();
   showToast('Gespeichert!');
-  // Reset
   document.getElementById('photo-preview').classList.add('hidden');
   document.getElementById('photo-results').classList.add('hidden');
-  // Switch to Protokoll tab
+  const hint = document.getElementById('photo-hint');
+  if (hint) hint.classList.remove('hidden');
   const tab = document.querySelector('.tab[data-page="page-today"]');
   if (tab) switchTab(tab);
 }

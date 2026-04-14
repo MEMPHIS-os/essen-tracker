@@ -1128,6 +1128,10 @@ async function loadSettingsView() {
   if (vitamindEl) vitamindEl.value = settings.dailyVitaminD || 20;
   if (caffeineEl) caffeineEl.value = settings.dailyCaffeine || 400;
 
+  // Gemini API key
+  const geminiEl = document.getElementById('settings-gemini-key');
+  if (geminiEl) geminiEl.value = settings.geminiApiKey || '';
+
   // Theme + Units
   const themeEl = document.getElementById('settings-theme');
   if (themeEl) themeEl.value = settings.theme || 'dark';
@@ -1173,6 +1177,30 @@ async function saveSettings() {
   haptic();
   showToast('Einstellungen gespeichert!');
   refreshTodayView();
+}
+
+async function saveGeminiKey() {
+  const el = document.getElementById('settings-gemini-key');
+  const key = el?.value.trim();
+  if (!key) { showToast('Bitte Key eingeben'); return; }
+  if (!key.startsWith('AIza') || key.length < 30) {
+    showToast('Key sieht ungueltig aus (beginnt mit AIza)');
+    return;
+  }
+  const current = await getSettings();
+  await saveSettingsData({ ...current, geminiApiKey: key });
+  haptic();
+  showToast('KI-Erkennung aktiviert!');
+}
+
+async function clearGeminiKey() {
+  const current = await getSettings();
+  const { geminiApiKey, ...rest } = current;
+  await saveSettingsData(rest);
+  const el = document.getElementById('settings-gemini-key');
+  if (el) el.value = '';
+  haptic();
+  showToast('Key entfernt');
 }
 
 // ---- Weight Tracker ----

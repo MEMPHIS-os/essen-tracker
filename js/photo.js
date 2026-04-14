@@ -97,25 +97,38 @@ async function analyzeWithGemini(file, apiKey) {
 
   const prompt = `Du bist ein Ernaehrungs-Experte. Analysiere dieses Foto eines Lebensmittels oder einer Naehrwerttabelle.
 
-Gib NUR valides JSON zurueck (kein Markdown, keine Erklaerung), mit diesen Feldern pro 100g:
+Gib NUR valides JSON zurueck (kein Markdown, keine Erklaerung), mit diesen Feldern:
 {
-  "name": "Produktname",
-  "kcal": Zahl,
-  "protein": Zahl (g),
-  "carbs": Zahl (g),
-  "fat": Zahl (g),
-  "sugar": Zahl (g, 0 wenn unbekannt),
-  "fiber": Zahl (g, 0 wenn unbekannt),
-  "saturatedFat": Zahl (g, 0 wenn unbekannt),
-  "sodium": Zahl (mg, 0 wenn unbekannt)
+  "name": "Produktname auf Deutsch, kurz (max 30 Zeichen)",
+  "kcal": Zahl (pro 100g),
+  "protein": Zahl (g pro 100g),
+  "carbs": Zahl (g pro 100g),
+  "fat": Zahl (g pro 100g),
+  "sugar": Zahl (g pro 100g, 0 wenn unbekannt),
+  "fiber": Zahl (g pro 100g, 0 wenn unbekannt),
+  "saturatedFat": Zahl (g pro 100g, 0 wenn unbekannt),
+  "sodium": Zahl (mg pro 100g, 0 wenn unbekannt),
+  "portionDesc": "kurze Beschreibung der sichtbar gezeigten Portion auf Deutsch, z.B. '5 mittlere Aepfel', '1 Becher Joghurt', '1 Teller Spaghetti Bolognese', '2 Scheiben Vollkornbrot'",
+  "portionGrams": Zahl (geschaetztes Gesamtgewicht der gezeigten Portion in Gramm, 0 wenn komplett unklar)
 }
 
-Regeln:
-- Wenn eine Naehrwerttabelle sichtbar ist: extrahiere die Zahlen PRO 100g (nicht pro Portion!)
-- Wenn nur Essen sichtbar ist (kein Etikett): schaetze auf Basis typischer Werte fuer dieses Lebensmittel
-- Kein Feld raten, wenn du dir nicht sicher bist - setze 0
-- name auf Deutsch, kurz (max 30 Zeichen)
-- Gib NUR das JSON zurueck, nichts davor oder danach`;
+Regeln fuer Naehrwerte:
+- Zahlen IMMER pro 100g angeben, NIE pro Portion
+- Wenn eine Naehrwerttabelle sichtbar ist: Werte daraus uebernehmen (Spalte "pro 100g")
+- Wenn nur Essen sichtbar ist: auf Basis typischer Werte fuer dieses Lebensmittel schaetzen
+- Feld 0 setzen, wenn unsicher - nicht raten
+
+Regeln fuer Portion (portionDesc + portionGrams):
+- Einzelne Stuecke zaehlen und mit typischem Gewicht multiplizieren
+- Richtwerte: 1 mittlerer Apfel ~180g, 1 Banane ~120g, 1 Ei ~60g, 1 Scheibe Brot ~30g,
+  1 Becher Joghurt ~150g, 1 Portion Nudeln gekocht ~250g, 1 Pizzastueck ~150g,
+  1 Handvoll Nuesse ~30g, 1 Riegel Schoko ~100g
+- Bei Naehrwerttabelle: portionGrams = Packungsinhalt (z.B. 150g Becher), portionDesc = Packungsname
+- Bei Teller/Schale mit Essen: realistisch schaetzen nach Fuellung und Groesse
+- portionGrams auf 0 setzen, wenn du die Portion nicht vernuenftig abschaetzen kannst
+- portionDesc kurz halten (max 40 Zeichen)
+
+Gib NUR das JSON zurueck, nichts davor oder danach.`;
 
   const body = {
     contents: [{
@@ -163,6 +176,8 @@ Regeln:
     fiber: numOrZero(parsed.fiber),
     saturatedFat: numOrZero(parsed.saturatedFat),
     sodium: numOrZero(parsed.sodium),
+    portionDesc: (parsed.portionDesc || '').toString().slice(0, 60),
+    portionGrams: numOrZero(parsed.portionGrams),
     confidence: 1.0
   };
 }
@@ -282,9 +297,24 @@ function showPhotoResults(parsed, source) {
   results.classList.remove('hidden');
 
   const badgeClass = source === 'KI' ? 'photo-source-badge ki' : 'photo-source-badge';
+  const portionHint = parsed.portionDesc
+    ? `<div class="photo-portion-hint">
+         <svg class="portion-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+           <path d="M4 8 l8 -4 l8 4 l-8 4 z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+           <path d="M4 8 v8 l8 4 v-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+           <path d="M20 8 v8 l-8 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+         </svg>
+         <div class="portion-text">
+           <strong>Erkannt:</strong> ${escapeHtml(parsed.portionDesc)}${parsed.portionGrams ? ` &middot; ca. <strong>${Math.round(parsed.portionGrams)} g</strong>` : ''}
+           <br><span class="portion-hint-sub">Gramm unten sind vorbef&uuml;llt &mdash; pr&uuml;fen und bei Bedarf anpassen</span>
+         </div>
+       </div>`
+    : '';
+  const gramsValue = (parsed.portionGrams && parsed.portionGrams > 0) ? Math.round(parsed.portionGrams) : '';
 
   results.innerHTML = `
-    <div class="${badgeClass}">${source}${source === 'KI' ? ' - Gemini' : ''}</div>
+    <div class="${badgeClass}">${source}</div>
+    ${portionHint}
     <div class="photo-result-form">
       <label>Produktname</label>
       <input type="text" id="photo-name" placeholder="z.B. Joghurt" class="input" value="${escapeHtml(parsed.name || '')}">
@@ -310,7 +340,7 @@ function showPhotoResults(parsed, source) {
       </details>
 
       <label>Gramm gegessen</label>
-      <input type="number" id="photo-grams" class="input" placeholder="z.B. 150" inputmode="decimal">
+      <input type="number" id="photo-grams" class="input" placeholder="z.B. 150" inputmode="decimal" value="${gramsValue}">
 
       <div id="photo-meal-selector" class="meal-selector">
         <button class="meal-btn active" data-meal="auto">Auto</button>

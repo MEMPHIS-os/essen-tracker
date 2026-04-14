@@ -149,8 +149,8 @@ function renderStatistics(days, allEntries, settings) {
       <div class="stat-card"><div class="stat-val">${Math.round(avgFat)}g</div><div class="stat-label">\u00D8 Fett</div></div>
       <div class="stat-card"><div class="stat-val">${Math.round(avgSugar)}g</div><div class="stat-label">\u00D8 Zucker</div></div>
     </div>
-    ${best ? `<div class="best-worst"><span class="bw-icon">\u{1F3C6}</span> <strong>Bester Tag:</strong> ${formatDateShort(best.date)} — ${best.score} Punkte</div>` : ''}
-    ${worst && worst !== best ? `<div class="best-worst warn"><span class="bw-icon">\u26A0\uFE0F</span> <strong>Schwaechster Tag:</strong> ${formatDateShort(worst.date)} — ${worst.score} Punkte</div>` : ''}
+    ${best ? `<div class="best-worst best"><span class="bw-dot"></span><strong>Bester Tag:</strong> ${formatDateShort(best.date)} &mdash; ${best.score} Punkte</div>` : ''}
+    ${worst && worst !== best ? `<div class="best-worst warn"><span class="bw-dot"></span><strong>Schw\u00e4chster Tag:</strong> ${formatDateShort(worst.date)} &mdash; ${worst.score} Punkte</div>` : ''}
     <div class="chart-section">
       <h4>Kalorien-Verlauf</h4>
       <svg id="kcal-chart" viewBox="0 0 320 160" class="stats-chart"></svg>

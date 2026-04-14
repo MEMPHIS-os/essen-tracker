@@ -1,4 +1,4 @@
-const CACHE_NAME = 'essentracker-v11';
+const CACHE_NAME = 'essentracker-v16';
 const ASSETS = [
   './',
   './index.html',
@@ -23,19 +23,27 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
+  // KEIN skipWaiting() hier - die App entscheidet per Message,
+  // wann der neue SW uebernehmen darf (sauberer Update-Flow).
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+// App sagt: "bitte jetzt uebernehmen" -> SW aktiviert sich, die App
+// bekommt dann ein 'controllerchange' Event und lädt neu.
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', e => {

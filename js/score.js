@@ -40,11 +40,11 @@ function calculateDayScore(entries, settings) {
 }
 
 function getScoreGrade(score) {
-  if (score >= 90) return { label: 'Perfekter Tag', emoji: '\u{1F31F}', color: '#22c55e' };
-  if (score >= 70) return { label: 'Sehr gut', emoji: '\u2705', color: '#22c55e' };
-  if (score >= 50) return { label: 'Okay', emoji: '\u{1F642}', color: '#f97316' };
-  if (score >= 30) return { label: 'Ausbaufaehig', emoji: '\u{1F4C8}', color: '#ef4444' };
-  return { label: 'Schwacher Tag', emoji: '\u{1F4AA}', color: '#ef4444' };
+  if (score >= 90) return { label: 'Perfekter Tag', color: '#22c55e' };
+  if (score >= 70) return { label: 'Sehr gut', color: '#22c55e' };
+  if (score >= 50) return { label: 'Okay', color: '#f97316' };
+  if (score >= 30) return { label: 'Ausbauf\u00e4hig', color: '#ef4444' };
+  return { label: 'Schwacher Tag', color: '#ef4444' };
 }
 
 function renderScoreRing(containerId, score) {
@@ -63,7 +63,10 @@ function renderScoreRing(containerId, score) {
       <text x="50" y="46" text-anchor="middle" fill="white" font-size="22" font-weight="bold">${score}</text>
       <text x="50" y="62" text-anchor="middle" fill="#888" font-size="10">Score</text>
     </svg>
-    <div class="score-grade" style="color:${grade.color}">${grade.emoji} ${grade.label}</div>
+    <div class="score-grade-pill" style="--grade-color:${grade.color}">
+      <span class="grade-dot"></span>
+      <span class="grade-label">${grade.label}</span>
+    </div>
   `;
 
   requestAnimationFrame(() => {
@@ -111,17 +114,34 @@ function calculateGoalStreak(allEntries, settings) {
 // ---- Achievements ----
 
 const ACHIEVEMENT_DEFS = [
-  { key: 'log-3', label: 'Guter Start', emoji: '\u{1F525}', type: 'logging', days: 3 },
-  { key: 'log-7', label: 'Eine Woche stark', emoji: '\u{1F4AA}', type: 'logging', days: 7 },
-  { key: 'log-14', label: 'Zwei Wochen dabei', emoji: '\u26A1', type: 'logging', days: 14 },
-  { key: 'log-30', label: 'Ein Monat Disziplin', emoji: '\u{1F3C6}', type: 'logging', days: 30 },
-  { key: 'log-100', label: 'Unaufhaltbar', emoji: '\u{1F31F}', type: 'logging', days: 100 },
-  { key: 'goal-3', label: '3 Tage im Ziel', emoji: '\u{1F3AF}', type: 'goal', days: 3 },
-  { key: 'goal-7', label: 'Woche perfekt', emoji: '\u{1F48E}', type: 'goal', days: 7 },
-  { key: 'goal-14', label: '14 Tage Praezision', emoji: '\u{1F680}', type: 'goal', days: 14 },
-  { key: 'goal-30', label: 'Monats-Champion', emoji: '\u{1F451}', type: 'goal', days: 30 },
-  { key: 'goal-100', label: '100 Tage Perfektion', emoji: '\u2B50', type: 'goal', days: 100 }
+  { key: 'log-3', label: 'Guter Start', type: 'logging', days: 3 },
+  { key: 'log-7', label: 'Eine Woche stark', type: 'logging', days: 7 },
+  { key: 'log-14', label: 'Zwei Wochen dabei', type: 'logging', days: 14 },
+  { key: 'log-30', label: 'Ein Monat Disziplin', type: 'logging', days: 30 },
+  { key: 'log-100', label: 'Unaufhaltbar', type: 'logging', days: 100 },
+  { key: 'goal-3', label: '3 Tage im Ziel', type: 'goal', days: 3 },
+  { key: 'goal-7', label: 'Woche perfekt', type: 'goal', days: 7 },
+  { key: 'goal-14', label: '14 Tage Pr\u00e4zision', type: 'goal', days: 14 },
+  { key: 'goal-30', label: 'Monats-Champion', type: 'goal', days: 30 },
+  { key: 'goal-100', label: '100 Tage Perfektion', type: 'goal', days: 100 }
 ];
+
+function achievementBadgeSvg(def, earned) {
+  const color = earned ? (def.type === 'goal' ? '#f59e0b' : '#3b82f6') : '#3a3a3a';
+  const textColor = earned ? '#fff' : '#555';
+  const bgFill = earned ? color : 'transparent';
+  return `
+    <svg class="achievement-badge-svg" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="27" fill="${bgFill}" stroke="${color}" stroke-width="2.5"/>
+      <text x="32" y="34" text-anchor="middle" dominant-baseline="middle"
+            fill="${textColor}" font-size="20" font-weight="800"
+            font-family="-apple-system, system-ui, sans-serif">${def.days}</text>
+      <text x="32" y="48" text-anchor="middle" fill="${textColor}" font-size="7"
+            font-weight="600" letter-spacing="0.5"
+            font-family="-apple-system, system-ui, sans-serif">TAGE</text>
+    </svg>
+  `;
+}
 
 async function checkAndAwardAchievements(loggingStreak, goalStreak) {
   for (const def of ACHIEVEMENT_DEFS) {
@@ -140,10 +160,10 @@ function showAchievementToast(achievement) {
   const toast = document.createElement('div');
   toast.className = 'achievement-toast';
   toast.innerHTML = `
-    <div class="achievement-toast-emoji">${achievement.emoji}</div>
+    <div class="achievement-toast-badge">${achievementBadgeSvg(achievement, true)}</div>
     <div class="achievement-toast-text">
       <strong>${achievement.label}</strong>
-      <span>Freigeschaltet!</span>
+      <span>Freigeschaltet</span>
     </div>
   `;
   document.body.appendChild(toast);
@@ -164,7 +184,7 @@ async function renderAchievementsGallery(containerId) {
     const dateStr = date ? new Date(date).toLocaleDateString('de-DE') : '';
     return `
       <div class="${cls}">
-        <div class="achievement-emoji">${date ? def.emoji : '\u{1F512}'}</div>
+        <div class="achievement-badge-wrap">${achievementBadgeSvg(def, !!date)}</div>
         <div class="achievement-label">${def.label}</div>
         <div class="achievement-date">${dateStr || (def.type === 'logging' ? def.days + ' Tage loggen' : def.days + ' Tage im Ziel')}</div>
       </div>

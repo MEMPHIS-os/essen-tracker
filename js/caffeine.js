@@ -3,10 +3,10 @@
 // ============================================
 
 const CAFFEINE_PRESETS = [
-  { name: 'Espresso', mg: 63, emoji: '\u2615' },
-  { name: 'Kaffee', mg: 90, emoji: '\u2615' },
-  { name: 'Tee', mg: 45, emoji: '\u{1F375}' },
-  { name: 'Red Bull', mg: 80, emoji: '\u26A1' }
+  { name: 'Espresso', mg: 63 },
+  { name: 'Kaffee', mg: 90 },
+  { name: 'Tee', mg: 45 },
+  { name: 'Energy', mg: 80 }
 ];
 
 async function addCaffeine(name, mg) {
@@ -77,8 +77,8 @@ function renderCaffeineQuickButtons() {
   const container = document.getElementById('caffeine-quick-buttons');
   if (!container) return;
   container.innerHTML = CAFFEINE_PRESETS.map(p =>
-    `<button class="caffeine-quick-btn" onclick="addCaffeine('${p.name}', ${p.mg})">${p.emoji} ${p.name}<span>${p.mg}mg</span></button>`
-  ).join('') + `<button class="caffeine-quick-btn custom" onclick="showModal('modal-caffeine')">\u2795 Eigenes</button>`;
+    `<button class="caffeine-quick-btn" onclick="addCaffeine('${p.name}', ${p.mg})"><span class="caf-name">${p.name}</span><span class="caf-mg">${p.mg} mg</span></button>`
+  ).join('') + `<button class="caffeine-quick-btn custom" onclick="showModal('modal-caffeine')"><span class="caf-name">Eigenes</span><span class="caf-mg">+</span></button>`;
 }
 
 async function saveCustomCaffeine() {

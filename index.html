@@ -3,12 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <!-- iOS: Standalone-Modus, transparente Statusleiste, eigener Homescreen-Titel -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#f97316">
+  <meta name="apple-mobile-web-app-title" content="EssenTracker">
+  <meta name="format-detection" content="telephone=no">
+  <!-- Android Chrome Adressleiste + PWA-Theme -->
+  <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f97316" media="(prefers-color-scheme: light)">
   <title>EssenTracker</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/onboarding.css">
   <link rel="stylesheet" href="css/photo.css">
@@ -94,12 +103,19 @@
           <!-- Streak Badges -->
           <div class="streak-row">
             <div id="streak-badge" class="streak-container hidden">
-              <span class="streak-fire">&#128293;</span>
+              <svg class="streak-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3 C14 7 8 9 8 13 a4 4 0 0 0 8 0 c0 -2 -1 -3 -2 -4 2 0 4 2 4 5 a6 6 0 0 1 -12 0 c0 -4 4 -6 6 -11 z"
+                  fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+              </svg>
               <span id="streak-count">0</span>
               <span class="streak-label">Tage Streak</span>
             </div>
             <div id="goal-streak-badge" class="streak-container hidden">
-              <span class="streak-fire">&#127942;</span>
+              <svg class="streak-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                <circle cx="12" cy="11" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                <circle cx="12" cy="11" r="1" fill="currentColor"/>
+              </svg>
               <span id="goal-streak-count">0</span>
               <span class="streak-label">Ziel-Streak</span>
             </div>
@@ -203,22 +219,41 @@
 
         <!-- Wassertracker -->
         <div id="water-tracker" class="water-section">
-          <div class="water-row">
-            <span class="water-icon">&#128167;</span>
-            <span id="water-count">0</span>
-            <span class="water-label">/ <span id="water-goal">8</span> Glaeser</span>
-            <button id="water-remove" class="water-btn water-btn-minus" onclick="removeWater()">&#8722;</button>
-            <button id="water-add" class="water-btn" onclick="addWater()">+</button>
+          <div class="water-header-row">
+            <div class="water-title">Wasser</div>
+            <div class="water-count-big"><span id="water-count">0</span><span class="water-sep">/</span><span id="water-goal">8</span><span class="water-unit">Gl&auml;ser</span></div>
           </div>
-          <div class="water-progress-track">
-            <div id="water-progress-fill" class="water-progress-fill"></div>
+          <div class="water-main">
+            <div class="water-bottle-wrap" id="water-bottle" style="--empty-ratio:0">
+              <svg class="bottle-svg" viewBox="0 0 80 170" aria-hidden="true">
+                <defs>
+                  <clipPath id="bottle-inner">
+                    <path d="M32,14 L48,14 L48,30 Q48,34 52,36 L64,44 Q70,48 70,56 L70,148 Q70,156 62,156 L18,156 Q10,156 10,148 L10,56 Q10,48 16,44 L28,36 Q32,34 32,30 Z"/>
+                  </clipPath>
+                  <linearGradient id="water-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#7dd3fc"/>
+                    <stop offset="100%" stop-color="#2563eb"/>
+                  </linearGradient>
+                </defs>
+                <g clip-path="url(#bottle-inner)">
+                  <rect class="water-level-rect" x="0" y="0" width="80" height="170" fill="url(#water-grad)"/>
+                  <path class="water-surface" d="M-10,0 Q10,-4 30,0 T70,0 T110,0 L110,10 L-10,10 Z"/>
+                </g>
+                <path class="bottle-outline" d="M32,14 L48,14 L48,30 Q48,34 52,36 L64,44 Q70,48 70,56 L70,148 Q70,156 62,156 L18,156 Q10,156 10,148 L10,56 Q10,48 16,44 L28,36 Q32,34 32,30 Z"/>
+                <rect class="bottle-cap" x="28" y="4" width="24" height="11" rx="2.5"/>
+              </svg>
+            </div>
+            <div class="water-actions">
+              <button id="water-add" class="water-btn-primary" onclick="addWater()" aria-label="Wasser hinzuf&uuml;gen">+</button>
+              <button id="water-remove" class="water-btn-secondary" onclick="removeWater()" aria-label="Wasser entfernen">&#8722;</button>
+            </div>
           </div>
         </div>
 
         <!-- Koffein-Tracker -->
         <div id="caffeine-tracker" class="caffeine-section">
           <div class="caffeine-header">
-            <span>&#9749; Koffein</span>
+            <div class="caffeine-title">Koffein</div>
             <span id="caffeine-total">0 / 400 mg</span>
           </div>
           <div class="caffeine-progress-track">
@@ -226,7 +261,14 @@
           </div>
           <div id="caffeine-quick-buttons" class="caffeine-quick-btns"></div>
           <div id="caffeine-entries" class="caffeine-entries"></div>
-          <div id="caffeine-warning" class="caffeine-warning hidden">&#9888; Koffein nach 14 Uhr kann den Schlaf st&ouml;ren</div>
+          <div id="caffeine-warning" class="caffeine-warning hidden">
+            <svg class="warn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3 L22 20 L2 20 Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M12 10 v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="12" cy="17.5" r="0.9" fill="currentColor"/>
+            </svg>
+            <span>Koffein nach 14 Uhr kann den Schlaf st&ouml;ren</span>
+          </div>
         </div>
 
         <div id="recent-products-section" class="hidden">
@@ -241,7 +283,10 @@
           </div>
           <div id="entries-list"></div>
           <div id="entries-empty" class="empty-state">
-            <span class="empty-icon">&#127860;</span>
+            <svg class="empty-icon-svg" viewBox="0 0 48 48" aria-hidden="true">
+              <circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.5"/>
+              <path d="M16 24 h16 M24 16 v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
             <p>Noch keine Eintr&auml;ge</p>
             <p class="empty-sub">Scanne einen Barcode oder f&uuml;ge manuell hinzu.</p>
           </div>
@@ -267,10 +312,14 @@
           <div id="history-summary" class="rings-row"></div>
           <div id="history-entries"></div>
           <div id="history-empty" class="empty-state">
-            <span class="empty-icon">&#128466;</span>
+            <svg class="empty-icon-svg" viewBox="0 0 48 48" aria-hidden="true">
+              <rect x="9" y="12" width="30" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M9 20 h30" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M16 8 v6 M32 8 v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
             <p>Keine Eintr&auml;ge an diesem Tag</p>
           </div>
-          <button id="btn-copy-day" class="btn-secondary full-width" style="margin-top:12px; display:none;" onclick="copyDayToToday()">&#128203; Tag nach Heute kopieren</button>
+          <button id="btn-copy-day" class="btn-secondary full-width" style="margin-top:12px; display:none;" onclick="copyDayToToday()">Tag nach Heute kopieren</button>
         </div>
 
         <!-- Wochenuebersicht -->
@@ -300,7 +349,7 @@
           <div style="padding:16px;">
             <label style="display:block;margin-bottom:6px;font-size:13px;color:#888;">Monat waehlen</label>
             <input type="month" id="pdf-month-picker" class="pdf-month-input" style="width:100%;margin-bottom:10px;padding:10px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#f5f5f5;font-size:14px;">
-            <button class="btn-secondary full-width" onclick="generateMonthlyPDF()">&#128196; Monatsbericht (PDF)</button>
+            <button class="btn-secondary full-width" onclick="generateMonthlyPDF()">Monatsbericht als PDF</button>
           </div>
         </div>
       </section>
@@ -403,14 +452,14 @@
             <span id="gemini-status-text">KI nicht aktiv &mdash; OCR-Modus</span>
           </div>
           <p class="settings-hint">
-            Google Gemini liest N&auml;hrwerttabellen deutlich besser als die lokale OCR. Kostenloses Kontingent, kein Zahlungsmittel n&ouml;tig.
+            Mit einem KI-Key werden N&auml;hrwerttabellen und Portionen deutlich besser erkannt als mit der lokalen OCR.
           </p>
           <div class="field">
-            <label>Gemini API Key</label>
-            <input type="text" id="settings-gemini-key" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onblur="autoSaveGeminiKey()">
+            <label>API Key</label>
+            <input type="text" id="settings-gemini-key" placeholder="API Key einfuegen" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onblur="autoSaveGeminiKey()">
           </div>
           <p class="settings-hint">
-            Key hier holen: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>. Wird beim Verlassen des Feldes automatisch gespeichert.
+            Key <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">hier holen</a>. Wird beim Verlassen des Feldes automatisch gespeichert.
           </p>
           <button class="btn-secondary full-width" onclick="saveGeminiKey()">Key testen</button>
           <button class="btn-secondary full-width" onclick="clearGeminiKey()" style="margin-top:6px">Key entfernen</button>
@@ -448,7 +497,7 @@
         <div class="settings-group">
           <h3>Export</h3>
           <button class="btn-secondary full-width" onclick="exportCSV()" style="margin-bottom:8px">Wochendaten als CSV exportieren</button>
-          <button class="btn-secondary full-width" onclick="generateMonthlyPDF()">&#128196; Monatsbericht (PDF)</button>
+          <button class="btn-secondary full-width" onclick="generateMonthlyPDF()">Monatsbericht als PDF</button>
         </div>
         <div class="settings-group">
           <h3>Backup</h3>
@@ -461,7 +510,7 @@
         <div class="settings-group">
           <h3>Version</h3>
           <div class="info-row"><span>Build</span><span id="info-version">v3.1</span></div>
-          <button class="btn-secondary full-width" onclick="forceUpdate()" style="margin-top:8px">App aktualisieren</button>
+          <p class="settings-hint" style="margin-top:6px">Updates werden automatisch im Hintergrund geladen.</p>
         </div>
         <div class="settings-group">
           <h3>Info</h3>
@@ -479,7 +528,11 @@
         </div>
         <div id="recipes-list"></div>
         <div id="recipes-empty" class="empty-state">
-          <span class="empty-icon">&#128214;</span>
+          <svg class="empty-icon-svg" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M10 8 h22 a4 4 0 0 1 4 4 v28 a0 0 0 0 1 0 0 h-24 a4 4 0 0 1 -4 -4 v-24 a4 4 0 0 1 2 -4 z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M10 36 a4 4 0 0 1 4 -4 h22" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M16 16 h12 M16 22 h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
           <p>Keine Rezepte</p>
           <p class="empty-sub">Erstelle dein erstes Rezept mit dem + Button.</p>
         </div>

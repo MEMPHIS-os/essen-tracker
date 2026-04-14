@@ -16,10 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await openDB();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(reg => {
-      // Force-check for updates at every app start (iOS PWA ist sehr aggressiv beim Caching)
-      if (reg) reg.update().catch(() => {});
-    }).catch(() => {});
+    setupAutoUpdate();
   }
 
   // Load theme before anything renders
@@ -380,10 +377,14 @@ async function refreshWaterDisplay() {
 
   document.getElementById('water-count').textContent = glasses;
   document.getElementById('water-goal').textContent = goal;
-  const fill = document.getElementById('water-progress-fill');
-  const ratio = goal > 0 ? Math.min(glasses / goal, 1) : 0;
-  fill.style.minWidth = (ratio * 100) + '%';
-  fill.style.maxWidth = (ratio * 100) + '%';
+
+  // Bottle animation: empty-ratio 0 = full, 1 = empty.
+  // Each consumed glass empties the bottle by 1/goal.
+  const bottle = document.getElementById('water-bottle');
+  if (bottle) {
+    const ratio = goal > 0 ? Math.min(glasses / goal, 1) : 0;
+    bottle.style.setProperty('--empty-ratio', ratio.toFixed(3));
+  }
 }
 
 // ---- Streaks ----
@@ -1134,7 +1135,7 @@ async function loadSettingsView() {
   // Gemini API key
   const geminiEl = document.getElementById('settings-gemini-key');
   if (geminiEl) geminiEl.value = settings.geminiApiKey || '';
-  updateGeminiStatusUI(!!settings.geminiApiKey);
+  updateGeminiStatusUI(settings.geminiApiKey ? 'on' : 'off');
 
   // Theme + Units
   const themeEl = document.getElementById('settings-theme');
@@ -1194,61 +1195,79 @@ async function saveSettings() {
   refreshTodayView();
 }
 
+// Pingt Gemini mit minimalem Request. Wirft bei Fehler.
+async function testGeminiKey(key) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: 'ok' }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 8, thinkingConfig: { thinkingBudget: 0 } }
+    })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const msg = errData?.error?.message || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+}
+
 async function saveGeminiKey() {
   const el = document.getElementById('settings-gemini-key');
   const key = el?.value.trim();
   if (!key) { showToast('Bitte Key eingeben'); return; }
   if (!key.startsWith('AIza') || key.length < 30) {
     showToast('Key sieht ungueltig aus (beginnt mit AIza)');
+    updateGeminiStatusUI('error', 'Falsches Format');
     return;
   }
 
   showToast('Teste Key...');
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'ok' }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 8, thinkingConfig: { thinkingBudget: 0 } }
-      })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const msg = errData?.error?.message || `HTTP ${res.status}`;
-      showToast('Key ungueltig: ' + msg.slice(0, 60));
-      return;
-    }
+    await testGeminiKey(key);
   } catch (e) {
-    showToast('Netzwerkfehler beim Test');
+    const msg = (e?.message || 'Unbekannter Fehler').slice(0, 60);
+    showToast('Key ungueltig: ' + msg);
+    updateGeminiStatusUI('error', msg);
     return;
   }
 
   const current = await getSettings();
   await saveSettingsData({ ...current, geminiApiKey: key });
-  updateGeminiStatusUI(true);
+  updateGeminiStatusUI('on');
   haptic();
   showToast('KI aktiviert und getestet!');
 }
 
-// Auto-Save: speichert den Key ohne API-Test, wenn User das Feld verlaesst.
-// So muss niemand mehr einen Button druecken.
+// Auto-Save: testet den Key beim Verlassen des Feldes.
+// Bei Erfolg -> speichern + gruen. Bei Fehler -> rot, Key NICHT speichern.
 async function autoSaveGeminiKey() {
   const el = document.getElementById('settings-gemini-key');
   if (!el) return;
   const key = el.value.trim();
   const current = await getSettings();
   if (key) {
-    if (!key.startsWith('AIza') || key.length < 30) return; // still invalid, noop
-    if (current.geminiApiKey === key) return; // no change
+    if (!key.startsWith('AIza') || key.length < 30) {
+      updateGeminiStatusUI('error', 'Falsches Format');
+      return;
+    }
+    if (current.geminiApiKey === key) return; // keine Aenderung
+    try {
+      await testGeminiKey(key);
+    } catch (e) {
+      const msg = (e?.message || 'Unbekannter Fehler').slice(0, 60);
+      updateGeminiStatusUI('error', msg);
+      showToast('Key ungueltig: ' + msg);
+      return;
+    }
     await saveSettingsData({ ...current, geminiApiKey: key });
-    updateGeminiStatusUI(true);
-    showToast('Key gespeichert');
+    updateGeminiStatusUI('on');
+    showToast('Key gespeichert & getestet');
   } else if (current.geminiApiKey) {
     // Feld wurde geleert -> Key entfernen
     const { geminiApiKey, ...rest } = current;
     await saveSettingsData(rest);
-    updateGeminiStatusUI(false);
+    updateGeminiStatusUI('off');
   }
 }
 
@@ -1258,56 +1277,157 @@ async function clearGeminiKey() {
   await saveSettingsData(rest);
   const el = document.getElementById('settings-gemini-key');
   if (el) el.value = '';
-  updateGeminiStatusUI(false);
+  updateGeminiStatusUI('off');
   haptic();
   showToast('Key entfernt');
 }
 
-function updateGeminiStatusUI(isActive) {
+// state: 'on' | 'off' | 'error'. Backwards-compatible mit boolean-Aufrufern.
+function updateGeminiStatusUI(state, errMsg) {
+  if (state === true) state = 'on';
+  else if (state === false) state = 'off';
+
   const row = document.getElementById('gemini-status-row');
   const text = document.getElementById('gemini-status-text');
   if (row && text) {
-    if (isActive) {
-      row.classList.remove('gemini-status-off');
+    row.classList.remove('gemini-status-on', 'gemini-status-off', 'gemini-status-error');
+    if (state === 'on') {
       row.classList.add('gemini-status-on');
-      text.textContent = 'KI aktiv (Gemini)';
+      text.textContent = 'KI aktiv';
+    } else if (state === 'error') {
+      row.classList.add('gemini-status-error');
+      text.textContent = 'Ungueltiger Key' + (errMsg ? ' \u2014 ' + errMsg : '');
     } else {
-      row.classList.remove('gemini-status-on');
       row.classList.add('gemini-status-off');
       text.textContent = 'KI nicht aktiv \u2014 OCR-Modus';
     }
   }
   const badge = document.getElementById('photo-mode-badge');
   if (badge) {
-    if (isActive) {
-      badge.classList.remove('photo-mode-off');
+    badge.classList.remove('photo-mode-on', 'photo-mode-off', 'photo-mode-error');
+    if (state === 'on') {
       badge.classList.add('photo-mode-on');
-      badge.textContent = 'KI-Modus (Gemini)';
+      badge.textContent = 'KI-Modus';
+    } else if (state === 'error') {
+      badge.classList.add('photo-mode-error');
+      badge.textContent = 'KI-Fehler (ungueltiger Key)';
     } else {
-      badge.classList.remove('photo-mode-on');
       badge.classList.add('photo-mode-off');
       badge.textContent = 'OCR-Modus (KI nicht aktiv)';
     }
   }
 }
 
-async function forceUpdate() {
-  showToast('Update wird gezogen...');
+// ============================================
+// Auto-Update Flow
+// ============================================
+// Ziel: neue Versionen werden im Hintergrund geladen und beim naechsten
+// passenden Moment automatisch aktiviert, ohne dass der User einen
+// Button druecken muss.
+//
+// Ablauf:
+// 1. SW registriert sich, checkt regelmaessig auf Updates
+// 2. Neuer SW wird in "waiting" geparkt (wir haben skipWaiting im install entfernt)
+// 3. Sobald ein waiting-SW existiert:
+//    - wenn die App gerade im Hintergrund ist -> sofort aktivieren
+//    - wenn sichtbar -> warten bis der User wegswitcht, dann aktivieren
+// 4. controllerchange -> einmaliger Reload auf die neue Version
+
+let _updatePending = false;
+let _reloadInFlight = false;
+
+async function setupAutoUpdate() {
   try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) {
-        await r.update();
-        await r.unregister();
+    const reg = await navigator.serviceWorker.register('sw.js');
+
+    // Beim Start gleich pruefen
+    reg.update().catch(() => {});
+
+    // Periodisch checken (nur solange sichtbar, schont Akku)
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        reg.update().catch(() => {});
       }
+    }, 60 * 1000);
+
+    // Wenn die App in den Vordergrund kommt: erneut checken
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        reg.update().catch(() => {});
+      } else if (_updatePending) {
+        // App wurde gerade minimiert UND ein Update wartet -> still anwenden
+        applyUpdateIfWaiting();
+      }
+    });
+
+    // Bereits wartender Worker? (Seltener Fall beim ersten Laden)
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      _updatePending = true;
+      scheduleSilentUpdate();
     }
-    if (typeof caches !== 'undefined') {
-      const keys = await caches.keys();
-      for (const k of keys) await caches.delete(k);
-    }
-    setTimeout(() => window.location.reload(true), 300);
+
+    // Neuer Worker im Anflug?
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // Fertig installiert, wartet auf Aktivierung
+          _updatePending = true;
+          scheduleSilentUpdate();
+        }
+      });
+    });
+
+    // Wenn der neue SW die Kontrolle uebernimmt -> genau einmal reloaden
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_reloadInFlight) return;
+      _reloadInFlight = true;
+      window.location.reload();
+    });
   } catch (e) {
-    showToast('Update-Fehler: ' + e.message);
+    console.warn('SW registration failed:', e);
+  }
+}
+
+// Entscheidet wann der wartende SW aktiviert wird.
+// - App im Hintergrund -> sofort
+// - App sichtbar -> warten, bis der User die App verlaesst ODER
+//   bis die Idle-Zeit lange genug ist (kein Input-Focus, kein offenes Modal)
+function scheduleSilentUpdate() {
+  if (document.visibilityState === 'hidden') {
+    applyUpdateIfWaiting();
+    return;
+  }
+  // Nicht mitten im Tippen unterbrechen. Nach 30 s Idle probieren.
+  setTimeout(() => {
+    if (isAppIdle()) applyUpdateIfWaiting();
+  }, 30 * 1000);
+}
+
+function isAppIdle() {
+  // Kein Input im Focus
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+    return false;
+  }
+  // Kein Modal offen
+  const modals = document.querySelectorAll('.modal:not(.hidden), #onboarding-overlay:not(.hidden)');
+  if (modals.length > 0) return false;
+  return true;
+}
+
+async function applyUpdateIfWaiting() {
+  if (!_updatePending) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg && reg.waiting) {
+      _updatePending = false;
+      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      // controllerchange handler macht dann den Reload
+    }
+  } catch (e) {
+    console.warn('applyUpdate failed:', e);
   }
 }
 

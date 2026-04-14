@@ -108,7 +108,10 @@ async function lookupProduct(barcode) {
         sugarPer100: cached.sugarPer100 || 0,
         fiberPer100: cached.fiberPer100 || 0,
         sodiumPer100: cached.sodiumPer100 || 0,
-        saturatedFatPer100: cached.saturatedFatPer100 || 0
+        saturatedFatPer100: cached.saturatedFatPer100 || 0,
+        vitaminDPer100: cached.vitaminDPer100 || 0,
+        calciumPer100: cached.calciumPer100 || 0,
+        ironPer100: cached.ironPer100 || 0
       };
       loading.classList.add('hidden');
       if (cacheBadge) cacheBadge.classList.remove('hidden');
@@ -157,7 +160,10 @@ async function lookupProduct(barcode) {
       sugarPer100: currentProduct.sugarPer100,
       fiberPer100: currentProduct.fiberPer100,
       sodiumPer100: currentProduct.sodiumPer100,
-      saturatedFatPer100: currentProduct.saturatedFatPer100
+      saturatedFatPer100: currentProduct.saturatedFatPer100,
+      vitaminDPer100: currentProduct.vitaminDPer100,
+      calciumPer100: currentProduct.calciumPer100,
+      ironPer100: currentProduct.ironPer100
     });
 
     loading.classList.add('hidden');

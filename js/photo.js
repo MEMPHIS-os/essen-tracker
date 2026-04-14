@@ -153,13 +153,22 @@ function showPhotoResults(parsed, source) {
       <label>Gramm gegessen</label>
       <input type="number" id="photo-grams" class="input" placeholder="z.B. 150" inputmode="decimal">
 
-      <div id="photo-meal-selector" class="meal-selector"></div>
+      <div id="photo-meal-selector" class="meal-selector">
+        <button class="meal-btn active" data-meal="auto">Auto</button>
+        <button class="meal-btn" data-meal="fruehstueck">Fruehstueck</button>
+        <button class="meal-btn" data-meal="mittagessen">Mittag</button>
+        <button class="meal-btn" data-meal="abendessen">Abend</button>
+        <button class="meal-btn" data-meal="snacks">Snacks</button>
+      </div>
 
       <button class="btn-primary full-width" onclick="savePhotoEntry()">Speichern</button>
     </div>
   `;
 
-  if (typeof setupMealSelector === 'function') setupMealSelector('photo-meal-selector');
+  if (typeof setupMealSelector === 'function') {
+    const selector = document.getElementById('photo-meal-selector');
+    if (selector) setupMealSelector(selector);
+  }
 }
 
 async function savePhotoEntry() {

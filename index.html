@@ -280,15 +280,7 @@
             <button class="htab active" onclick="refreshStatsView(7); this.parentElement.querySelectorAll('.htab').forEach(b=>b.classList.remove('active')); this.classList.add('active');">7 Tage</button>
             <button class="htab" onclick="refreshStatsView(30); this.parentElement.querySelectorAll('.htab').forEach(b=>b.classList.remove('active')); this.classList.add('active');">30 Tage</button>
           </div>
-          <div id="stats-summary" class="stats-grid"></div>
-          <h4 style="padding:0 16px;margin:16px 0 8px;">Kalorien-Verlauf</h4>
-          <div class="stats-chart-container">
-            <svg id="stats-kcal-chart" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet"></svg>
-          </div>
-          <h4 style="padding:0 16px;margin:16px 0 8px;">Score-Verlauf</h4>
-          <div class="stats-chart-container">
-            <svg id="stats-score-chart" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet"></svg>
-          </div>
+          <div id="stats-content"></div>
           <div style="padding:16px;">
             <label style="display:block;margin-bottom:6px;font-size:13px;color:#888;">Monat waehlen</label>
             <input type="month" id="pdf-month-picker" class="pdf-month-input" style="width:100%;margin-bottom:10px;padding:10px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#f5f5f5;font-size:14px;">

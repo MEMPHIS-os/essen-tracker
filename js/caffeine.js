@@ -23,26 +23,20 @@ async function refreshCaffeineDisplay() {
   const total = entries.reduce((s, e) => s + (e.caffeineAmount || 0), 0);
   const limit = settings.dailyCaffeine || 400;
 
-  // Total badge
-  const badge = document.getElementById('caffeine-total-badge');
-  if (badge) badge.textContent = Math.round(total) + 'mg';
+  // Total label (header)
+  const totalEl = document.getElementById('caffeine-total');
+  if (totalEl) totalEl.textContent = Math.round(total) + ' / ' + limit + ' mg';
 
   // Progress bar
   const fill = document.getElementById('caffeine-progress-fill');
-  const label = document.getElementById('caffeine-progress-label');
   if (fill) {
     const ratio = Math.min(total / limit, 1);
-    fill.style.minWidth = (ratio * 100) + '%';
-    fill.style.maxWidth = (ratio * 100) + '%';
-    if (total <= 200) {
-      fill.className = 'caffeine-bar-fill green';
-    } else if (total <= 400) {
-      fill.className = 'caffeine-bar-fill orange';
-    } else {
-      fill.className = 'caffeine-bar-fill red';
-    }
+    fill.style.width = (ratio * 100) + '%';
+    let zone = 'green';
+    if (total > 400) zone = 'red';
+    else if (total > 200) zone = 'orange';
+    fill.className = 'caffeine-progress-fill ' + zone;
   }
-  if (label) label.textContent = Math.round(total) + ' / ' + limit + ' mg';
 
   // Entry list
   const list = document.getElementById('caffeine-entries');

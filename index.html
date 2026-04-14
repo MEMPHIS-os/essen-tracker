@@ -68,6 +68,7 @@
         <!-- Photo Mode -->
         <div id="capture-photo-view" class="hidden">
           <div class="photo-container">
+            <div id="photo-mode-badge" class="photo-mode-badge photo-mode-off">OCR-Modus (KI nicht aktiv)</div>
             <img id="photo-preview" class="hidden" alt="Vorschau">
             <input type="file" id="photo-file-input" accept="image/*" capture="environment">
             <button class="photo-capture-btn" onclick="openPhotoCapture()">
@@ -397,21 +398,22 @@
         </div>
         <div class="settings-group">
           <h3>KI Foto-Erkennung</h3>
+          <div id="gemini-status-row" class="gemini-status gemini-status-off">
+            <span class="gemini-dot"></span>
+            <span id="gemini-status-text">KI nicht aktiv &mdash; OCR-Modus</span>
+          </div>
           <p class="settings-hint">
-            Optional: Google Gemini liest N&auml;hrwerttabellen und Produkte deutlich besser als die lokale OCR &mdash; kostenloses Kontingent reicht f&uuml;r allt&auml;gliche Nutzung locker aus.
+            Google Gemini liest N&auml;hrwerttabellen deutlich besser als die lokale OCR. Kostenloses Kontingent, kein Zahlungsmittel n&ouml;tig.
           </p>
           <div class="field">
             <label>Gemini API Key</label>
-            <input type="password" id="settings-gemini-key" placeholder="AIza..." autocomplete="off">
+            <input type="text" id="settings-gemini-key" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onblur="autoSaveGeminiKey()">
           </div>
           <p class="settings-hint">
-            Key hier holen: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> &mdash; kostenlos, kein Zahlungsmittel n&ouml;tig. Der Key bleibt lokal im Browser.
+            Key hier holen: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>. Wird beim Verlassen des Feldes automatisch gespeichert.
           </p>
-          <button class="btn-secondary full-width" onclick="saveGeminiKey()">Key testen &amp; speichern</button>
+          <button class="btn-secondary full-width" onclick="saveGeminiKey()">Key testen</button>
           <button class="btn-secondary full-width" onclick="clearGeminiKey()" style="margin-top:6px">Key entfernen</button>
-          <p class="settings-hint" style="margin-top:8px">
-            Der Key wird auch mit dem <strong>Speichern</strong>-Button oben bei den Tageszielen &uuml;bernommen.
-          </p>
         </div>
         <div class="settings-group">
           <h3>Benachrichtigungen</h3>
@@ -455,6 +457,11 @@
             Backup wiederherstellen
             <input type="file" id="import-file" accept=".json" style="display:none" onchange="doFullImport(event)">
           </label>
+        </div>
+        <div class="settings-group">
+          <h3>Version</h3>
+          <div class="info-row"><span>Build</span><span id="info-version">v3.1</span></div>
+          <button class="btn-secondary full-width" onclick="forceUpdate()" style="margin-top:8px">App aktualisieren</button>
         </div>
         <div class="settings-group">
           <h3>Info</h3>

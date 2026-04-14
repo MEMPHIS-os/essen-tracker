@@ -10,6 +10,13 @@ function initPhotoTab() {
     input.addEventListener('change', handlePhotoSelected);
     input.dataset.bound = '1';
   }
+  // Badge aktualisieren (KI aktiv / OCR-Modus)
+  (async () => {
+    try {
+      const s = await getSettings();
+      if (typeof updateGeminiStatusUI === 'function') updateGeminiStatusUI(!!s.geminiApiKey);
+    } catch (e) {}
+  })();
 }
 
 function openPhotoCapture() {

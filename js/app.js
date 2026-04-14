@@ -16,7 +16,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await openDB();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // Force-check for updates at every app start (iOS PWA ist sehr aggressiv beim Caching)
+      if (reg) reg.update().catch(() => {});
+    }).catch(() => {});
   }
 
   // Load theme before anything renders
@@ -1131,6 +1134,7 @@ async function loadSettingsView() {
   // Gemini API key
   const geminiEl = document.getElementById('settings-gemini-key');
   if (geminiEl) geminiEl.value = settings.geminiApiKey || '';
+  updateGeminiStatusUI(!!settings.geminiApiKey);
 
   // Theme + Units
   const themeEl = document.getElementById('settings-theme');
@@ -1222,8 +1226,30 @@ async function saveGeminiKey() {
 
   const current = await getSettings();
   await saveSettingsData({ ...current, geminiApiKey: key });
+  updateGeminiStatusUI(true);
   haptic();
   showToast('KI aktiviert und getestet!');
+}
+
+// Auto-Save: speichert den Key ohne API-Test, wenn User das Feld verlaesst.
+// So muss niemand mehr einen Button druecken.
+async function autoSaveGeminiKey() {
+  const el = document.getElementById('settings-gemini-key');
+  if (!el) return;
+  const key = el.value.trim();
+  const current = await getSettings();
+  if (key) {
+    if (!key.startsWith('AIza') || key.length < 30) return; // still invalid, noop
+    if (current.geminiApiKey === key) return; // no change
+    await saveSettingsData({ ...current, geminiApiKey: key });
+    updateGeminiStatusUI(true);
+    showToast('Key gespeichert');
+  } else if (current.geminiApiKey) {
+    // Feld wurde geleert -> Key entfernen
+    const { geminiApiKey, ...rest } = current;
+    await saveSettingsData(rest);
+    updateGeminiStatusUI(false);
+  }
 }
 
 async function clearGeminiKey() {
@@ -1232,8 +1258,57 @@ async function clearGeminiKey() {
   await saveSettingsData(rest);
   const el = document.getElementById('settings-gemini-key');
   if (el) el.value = '';
+  updateGeminiStatusUI(false);
   haptic();
   showToast('Key entfernt');
+}
+
+function updateGeminiStatusUI(isActive) {
+  const row = document.getElementById('gemini-status-row');
+  const text = document.getElementById('gemini-status-text');
+  if (row && text) {
+    if (isActive) {
+      row.classList.remove('gemini-status-off');
+      row.classList.add('gemini-status-on');
+      text.textContent = 'KI aktiv (Gemini)';
+    } else {
+      row.classList.remove('gemini-status-on');
+      row.classList.add('gemini-status-off');
+      text.textContent = 'KI nicht aktiv \u2014 OCR-Modus';
+    }
+  }
+  const badge = document.getElementById('photo-mode-badge');
+  if (badge) {
+    if (isActive) {
+      badge.classList.remove('photo-mode-off');
+      badge.classList.add('photo-mode-on');
+      badge.textContent = 'KI-Modus (Gemini)';
+    } else {
+      badge.classList.remove('photo-mode-on');
+      badge.classList.add('photo-mode-off');
+      badge.textContent = 'OCR-Modus (KI nicht aktiv)';
+    }
+  }
+}
+
+async function forceUpdate() {
+  showToast('Update wird gezogen...');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) {
+        await r.update();
+        await r.unregister();
+      }
+    }
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      for (const k of keys) await caches.delete(k);
+    }
+    setTimeout(() => window.location.reload(true), 300);
+  } catch (e) {
+    showToast('Update-Fehler: ' + e.message);
+  }
 }
 
 // ---- Weight Tracker ----

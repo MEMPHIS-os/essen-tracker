@@ -108,8 +108,14 @@ async function updateNotificationToggles() {
   const settings = await getSettings();
   const dailyBtn = document.getElementById('btn-toggle-daily');
   const weeklyBtn = document.getElementById('btn-toggle-weekly');
-  if (dailyBtn) dailyBtn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
-  if (weeklyBtn) weeklyBtn.textContent = settings.weeklySummaryEnabled ? 'An' : 'Aus';
+  if (dailyBtn) {
+    dailyBtn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
+    dailyBtn.classList.toggle('active', !!settings.dailyReminderEnabled);
+  }
+  if (weeklyBtn) {
+    weeklyBtn.textContent = settings.weeklySummaryEnabled ? 'An' : 'Aus';
+    weeklyBtn.classList.toggle('active', !!settings.weeklySummaryEnabled);
+  }
 }
 
 // ---- Theme / Units ----
@@ -812,7 +818,15 @@ function switchHistoryTab(tab) {
   else if (tab === 'calendar' && typeof refreshCalendarView === 'function') {
     refreshCalendarView();
   }
-  else if (tab === 'stats' && typeof refreshStatsView === 'function') refreshStatsView(7);
+  else if (tab === 'stats' && typeof refreshStatsView === 'function') {
+    refreshStatsView(7);
+    // Pre-fill PDF month picker with current month
+    const picker = document.getElementById('pdf-month-picker');
+    if (picker && !picker.value) {
+      const now = new Date();
+      picker.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+  }
 }
 
 async function refreshHistoryView() {

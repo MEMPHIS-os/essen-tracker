@@ -233,21 +233,40 @@ async function generateMonthlyPDF() {
   // Lazy-load jsPDF
   if (typeof jspdf === 'undefined' && typeof jsPDF === 'undefined') {
     showToast('Lade PDF-Engine...');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    } catch (e) {
+      showToast('PDF-Engine konnte nicht geladen werden (offline?)');
+      return;
+    }
   }
 
   const PDF = (typeof jspdf !== 'undefined') ? jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
   if (!PDF) { showToast('PDF-Engine nicht verfuegbar'); return; }
 
+  showToast('Erstelle Monatsbericht...');
+
   const allEntries = await getAllEntries();
   const settings = await getSettings();
   const weights = await getAllWeights();
 
-  // Current month
+  // Month selection (from picker, fallback to current month)
   const picker = document.getElementById('pdf-month-picker');
-  const [year, month] = picker ? picker.value.split('-').map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
+  let year, month;
+  if (picker && picker.value) {
+    [year, month] = picker.value.split('-').map(Number);
+  } else {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+  }
   const monthStr = `${year}-${String(month).padStart(2, '0')}`;
   const monthEntries = allEntries.filter(e => e.date && e.date.startsWith(monthStr));
+
+  if (monthEntries.length === 0) {
+    showToast('Keine Daten fuer diesen Monat');
+    return;
+  }
 
   const doc = new PDF();
   doc.setFontSize(18);

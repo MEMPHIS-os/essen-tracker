@@ -97,7 +97,14 @@ async function toggleDailyReminder() {
   }
   settings.dailyReminderEnabled = !settings.dailyReminderEnabled;
   await saveSettingsData(settings);
+  haptic();
   showToast(settings.dailyReminderEnabled ? 'Erinnerung aktiviert' : 'Erinnerung deaktiviert');
+  // Update button visual state
+  const btn = document.getElementById('btn-toggle-daily');
+  if (btn) {
+    btn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
+    btn.classList.toggle('active', settings.dailyReminderEnabled);
+  }
 }
 
 async function toggleWeeklySummary() {
@@ -108,5 +115,12 @@ async function toggleWeeklySummary() {
   }
   settings.weeklySummaryEnabled = !settings.weeklySummaryEnabled;
   await saveSettingsData(settings);
+  haptic();
   showToast(settings.weeklySummaryEnabled ? 'Zusammenfassung aktiviert' : 'Zusammenfassung deaktiviert');
+  // Update button visual state
+  const btn = document.getElementById('btn-toggle-weekly');
+  if (btn) {
+    btn.textContent = settings.weeklySummaryEnabled ? 'An' : 'Aus';
+    btn.classList.toggle('active', settings.weeklySummaryEnabled);
+  }
 }

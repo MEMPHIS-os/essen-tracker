@@ -49,6 +49,9 @@ async function refreshCaffeineDisplay() {
       </div>
     `).join('');
   }
+
+  // Re-evaluate sleep-warning visibility after DOM is updated
+  checkCaffeineWarning();
 }
 
 async function removeCaffeineItem(id) {
@@ -58,9 +61,15 @@ async function removeCaffeineItem(id) {
 }
 
 function checkCaffeineWarning() {
+  const warning = document.getElementById('caffeine-warning');
+  if (!warning) return;
   const hour = new Date().getHours();
-  if (hour >= 14) {
-    showToast('Koffein kann deinen Schlaf beeinflussen');
+  // Show warning if there is any caffeine entry AND current time is after 14:00
+  const hasEntries = document.querySelectorAll('#caffeine-entries .caffeine-entry').length > 0;
+  if (hour >= 14 && hasEntries) {
+    warning.classList.remove('hidden');
+  } else {
+    warning.classList.add('hidden');
   }
 }
 

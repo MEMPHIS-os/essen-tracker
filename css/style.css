@@ -1432,6 +1432,20 @@ html, body {
 .source-badge.ocr { background: rgba(59,130,246,0.2); color: #3b82f6; }
 .source-badge.photo { background: rgba(168,85,247,0.2); color: #a855f7; }
 
+/* ---- Toggle Buttons (Notification-Settings) ---- */
+.toggle-btn {
+  background: #2a2a2a; border: 1px solid #333; color: #888;
+  padding: 6px 16px; border-radius: 20px; font-size: 13px;
+  cursor: pointer; min-width: 56px; transition: all 0.2s ease;
+}
+.toggle-btn.active {
+  background: #22c55e; border-color: #22c55e; color: #fff; font-weight: 600;
+}
+.toggle-btn:active { transform: scale(0.95); }
+
+/* ---- PDF Month Picker ---- */
+.pdf-month-input:focus { outline: 2px solid #f97316; outline-offset: 2px; }
+
 /* ---- Utilities ---- */
 .hidden { display: none !important; }
 

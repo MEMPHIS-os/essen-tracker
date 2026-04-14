@@ -25,6 +25,60 @@ async function checkPendingNotifications() {
   if (settings.weeklySummaryEnabled) {
     await checkWeeklySummary();
   }
+
+  // Meal reminders (Mittag + Abend)
+  if (settings.mealRemindersEnabled) {
+    await checkMealReminders();
+  }
+}
+
+// Mittag (12-13 Uhr) und Abend (18-20 Uhr) Reminder, wenn die jeweilige Mahlzeit noch nicht geloggt wurde
+async function checkMealReminders() {
+  const now = new Date();
+  const hour = now.getHours();
+  const today = now.toISOString().split('T')[0];
+  const entries = await getEntriesForDate(today);
+
+  // Mittag: 12-14, wenn noch nichts als mittagessen geloggt
+  if (hour >= 12 && hour < 14) {
+    const flag = `mealReminder_lunch_${today}`;
+    if (!localStorage.getItem(flag)) {
+      const hasLunch = entries.some(e => e.meal === 'mittagessen');
+      if (!hasLunch) {
+        sendNotification('Mittagessen?', 'Vergiss nicht, deine Mahlzeit zu tracken.', 'meal-lunch');
+        localStorage.setItem(flag, '1');
+      }
+    }
+  }
+
+  // Abend: 18-21, wenn noch nichts als abendessen geloggt
+  if (hour >= 18 && hour < 21) {
+    const flag = `mealReminder_dinner_${today}`;
+    if (!localStorage.getItem(flag)) {
+      const hasDinner = entries.some(e => e.meal === 'abendessen');
+      if (!hasDinner) {
+        sendNotification('Abendessen?', 'Tracke dein Abendessen bevor du vergisst.', 'meal-dinner');
+        localStorage.setItem(flag, '1');
+      }
+    }
+  }
+}
+
+async function toggleMealReminders() {
+  const settings = await getSettings();
+  if (!settings.mealRemindersEnabled) {
+    const granted = await requestNotificationPermission();
+    if (!granted) { showToast('Benachrichtigungen nicht erlaubt'); return; }
+  }
+  settings.mealRemindersEnabled = !settings.mealRemindersEnabled;
+  await saveSettingsData(settings);
+  haptic();
+  showToast(settings.mealRemindersEnabled ? 'Meal-Reminder aktiviert' : 'Meal-Reminder deaktiviert');
+  const btn = document.getElementById('btn-toggle-meal');
+  if (btn) {
+    btn.textContent = settings.mealRemindersEnabled ? 'An' : 'Aus';
+    btn.classList.toggle('active', settings.mealRemindersEnabled);
+  }
 }
 
 async function checkDailyReminder(settings) {

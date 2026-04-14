@@ -147,6 +147,9 @@
           <div id="today-remaining" class="remaining-display">
             <span id="remaining-text">Noch 2000 kcal uebrig</span>
           </div>
+
+          <!-- Live-Forecast: wohin landet dein Tag? -->
+          <div id="live-forecast" class="live-forecast hidden"></div>
           <div class="macro-bars">
             <div class="macro-bar-row">
               <span class="macro-label">Kalorien</span>
@@ -272,7 +275,13 @@
         </div>
 
         <div id="recent-products-section" class="hidden">
-          <h3 class="section-header">Schnell hinzuf&uuml;gen</h3>
+          <div class="fav-header-row">
+            <h3 class="section-header">Schnell hinzuf&uuml;gen</h3>
+            <div class="fav-mode-tabs">
+              <button class="fav-mode-btn active" data-mode="recent" onclick="setFavoritesMode('recent')">K&uuml;rzlich</button>
+              <button class="fav-mode-btn" data-mode="frequent" onclick="setFavoritesMode('frequent')">Favoriten</button>
+            </div>
+          </div>
           <div id="recent-products-list" class="recent-chips"></div>
         </div>
 
@@ -346,6 +355,23 @@
             <button class="htab" onclick="refreshStatsView(30); this.parentElement.querySelectorAll('.htab').forEach(b=>b.classList.remove('active')); this.classList.add('active');">30 Tage</button>
           </div>
           <div id="stats-content"></div>
+
+          <!-- KI-Wochenanalyse -->
+          <div style="padding:16px;">
+            <button id="btn-weekly-ai" class="btn-ai-analysis full-width" onclick="runWeeklyAiAnalysis()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2l2.4 6.8L22 10l-5.6 4.8L18 22l-6-3.6L6 22l1.6-7.2L2 10l7.6-1.2z"/>
+              </svg>
+              KI-Wochenanalyse
+            </button>
+            <div id="weekly-ai-result" class="weekly-ai-result hidden"></div>
+          </div>
+
+          <!-- Monats-Rueckblick -->
+          <div style="padding:0 16px 16px;">
+            <button class="btn-secondary full-width" onclick="openMonthlyReview()">Monats-R&uuml;ckblick anzeigen</button>
+          </div>
+
           <div style="padding:16px;">
             <label style="display:block;margin-bottom:6px;font-size:13px;color:#888;">Monat waehlen</label>
             <input type="month" id="pdf-month-picker" class="pdf-month-input" style="width:100%;margin-bottom:10px;padding:10px;border-radius:10px;border:1px solid #333;background:#1a1a1a;color:#f5f5f5;font-size:14px;">
@@ -471,6 +497,10 @@
             <button id="btn-toggle-daily" class="toggle-btn" onclick="toggleDailyReminder()">Aus</button>
           </div>
           <div class="notification-toggle">
+            <span class="settings-label">Meal-Reminder (12 &amp; 19 Uhr)</span>
+            <button id="btn-toggle-meal" class="toggle-btn" onclick="toggleMealReminders()">Aus</button>
+          </div>
+          <div class="notification-toggle">
             <span class="settings-label">Wochen-Zusammenfassung</span>
             <button id="btn-toggle-weekly" class="toggle-btn" onclick="toggleWeeklySummary()">Aus</button>
           </div>
@@ -579,6 +609,14 @@
         <div class="modal-body">
           <div class="ai-estimate-row">
             <input type="text" id="manual-ai-input" placeholder="z.B. Barbecue Burrito" autocomplete="off">
+            <button id="manual-voice-btn" class="btn-voice" onclick="startVoiceInput()" title="Sprechen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="2" width="6" height="12" rx="3"/>
+                <path d="M5 10v2a7 7 0 0 0 14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </button>
             <button id="manual-ai-btn" class="btn-ai-estimate" onclick="runManualAiEstimate()">KI-Sch&auml;tzung</button>
           </div>
           <div id="manual-ai-hint" class="photo-portion-hint hidden"></div>
@@ -787,6 +825,20 @@
           <div id="search-empty" class="empty-state hidden">
             <p>Keine Produkte gefunden</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monats-Rueckblick Modal -->
+    <div id="modal-monthly-review" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-close" onclick="hideModal('modal-monthly-review')">Schlie&szlig;en</button>
+          <h2>Monats-R&uuml;ckblick</h2>
+          <span></span>
+        </div>
+        <div class="modal-body">
+          <div id="monthly-review-content"></div>
         </div>
       </div>
     </div>

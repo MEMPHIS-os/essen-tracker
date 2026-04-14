@@ -108,6 +108,7 @@ async function updateNotificationToggles() {
   const settings = await getSettings();
   const dailyBtn = document.getElementById('btn-toggle-daily');
   const weeklyBtn = document.getElementById('btn-toggle-weekly');
+  const mealBtn = document.getElementById('btn-toggle-meal');
   if (dailyBtn) {
     dailyBtn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
     dailyBtn.classList.toggle('active', !!settings.dailyReminderEnabled);
@@ -115,6 +116,10 @@ async function updateNotificationToggles() {
   if (weeklyBtn) {
     weeklyBtn.textContent = settings.weeklySummaryEnabled ? 'An' : 'Aus';
     weeklyBtn.classList.toggle('active', !!settings.weeklySummaryEnabled);
+  }
+  if (mealBtn) {
+    mealBtn.textContent = settings.mealRemindersEnabled ? 'An' : 'Aus';
+    mealBtn.classList.toggle('active', !!settings.mealRemindersEnabled);
   }
 }
 
@@ -285,6 +290,9 @@ async function refreshTodayView() {
   await refreshWaterDisplay();
   await refreshStreaks();
   if (typeof refreshCaffeineDisplay === 'function') await refreshCaffeineDisplay();
+
+  // Live forecast
+  updateLiveForecast();
 }
 
 function updateExtendedBar(name, current, goal, unit) {
@@ -443,10 +451,23 @@ function calculateBasicStreak(allEntries) {
   return streak;
 }
 
-// ---- Recent Products ----
+// ---- Recent Products / Favoriten ----
+// Modus: 'recent' (default, juengste zuerst) | 'frequent' (haeufigste zuerst, pinned oben)
+
+let favoritesMode = 'recent';
+
+function setFavoritesMode(mode) {
+  favoritesMode = mode;
+  document.querySelectorAll('.fav-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  refreshRecentProducts();
+}
 
 async function refreshRecentProducts() {
-  const products = await getRecentProducts();
+  const products = favoritesMode === 'frequent'
+    ? await getFavoriteProducts(12)
+    : await getRecentProducts();
   const section = document.getElementById('recent-products-section');
   const list = document.getElementById('recent-products-list');
 
@@ -458,13 +479,171 @@ async function refreshRecentProducts() {
   section.classList.remove('hidden');
   list.innerHTML = '';
 
-  products.slice(0, 10).forEach(p => {
-    const chip = document.createElement('button');
-    chip.className = 'recent-chip';
-    chip.innerHTML = `<span class="recent-chip-name">${escapeHtml(p.productName)}</span><span class="recent-chip-info">${Math.round(p.kcalPer100)} kcal/100g</span>`;
-    chip.addEventListener('click', () => openQuickAdd(p));
+  products.slice(0, 12).forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'recent-chip' + (p.pinned ? ' pinned' : '');
+    const starIcon = p.pinned
+      ? `<svg class="pin-icon active" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/></svg>`
+      : `<svg class="pin-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    const countBadge = (p.useCount && p.useCount > 1)
+      ? `<span class="recent-chip-count">&times;${p.useCount}</span>`
+      : '';
+    chip.innerHTML = `
+      <button class="recent-chip-pin" data-name="${escapeHtml(p.productName)}" title="Favorit">${starIcon}</button>
+      <button class="recent-chip-main">
+        <span class="recent-chip-name">${escapeHtml(p.productName)}</span>
+        <span class="recent-chip-info">${Math.round(p.kcalPer100)} kcal/100g ${countBadge}</span>
+      </button>
+    `;
+    chip.querySelector('.recent-chip-main').addEventListener('click', () => openQuickAdd(p));
+    chip.querySelector('.recent-chip-pin').addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const name = ev.currentTarget.dataset.name;
+      const nowPinned = await togglePinnedProduct(name);
+      haptic();
+      showToast(nowPinned ? 'Favorit' : 'Favorit entfernt');
+      refreshRecentProducts();
+    });
     list.appendChild(chip);
   });
+}
+
+// ---- Live-Forecast fuer Heute ----
+// Schaetzt basierend auf Uhrzeit und bisherigen Kalorien, wo der Tag landet.
+// Formel: linear extrapolieren bis 22 Uhr (vereinfacht), gewichtet mit Wochenschnitt.
+
+async function updateLiveForecast() {
+  const forecastEl = document.getElementById('live-forecast');
+  if (!forecastEl) return;
+
+  const entries = await getTodayEntries();
+  const settings = await getSettings();
+  const now = new Date();
+  const hour = now.getHours() + now.getMinutes() / 60;
+
+  // Vor 8 Uhr oder 0 Eintraege -> kein Forecast
+  if (entries.length === 0 || hour < 8) {
+    forecastEl.classList.add('hidden');
+    return;
+  }
+
+  const consumedKcal = entries.reduce((s, e) => s + (e.totalKcal || 0), 0);
+
+  // Linearer Anteil: Wach-Phase 8-22 Uhr = 14h
+  const wakeStart = 8;
+  const wakeEnd = 22;
+  const progressRatio = Math.max(0.05, Math.min(1, (hour - wakeStart) / (wakeEnd - wakeStart)));
+
+  // Extrapolation: wenn 30% des Tages vorbei, dann wird das 3.3x hochgerechnet
+  const extrapolated = consumedKcal / progressRatio;
+
+  // Mit Wochenschnitt glaetten, damit Morgens-Burst nicht in die Irre fuehrt
+  const all = await getAllEntries();
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekEntries = all.filter(e => new Date(e.date) >= weekAgo && new Date(e.date) < new Date(now.toISOString().split('T')[0]));
+  const weekDays = new Set(weekEntries.map(e => e.date.split('T')[0]));
+  let weekAvg = settings.dailyKcal;
+  if (weekDays.size > 0) {
+    weekAvg = weekEntries.reduce((s, e) => s + (e.totalKcal || 0), 0) / weekDays.size;
+  }
+
+  // Gewichtete Kombination: je spaeter, desto mehr Extrapolation trifft zu
+  const forecastKcal = Math.round(extrapolated * progressRatio + weekAvg * (1 - progressRatio));
+  // Clamp: darf nicht unter consumed fallen
+  const finalForecast = Math.max(consumedKcal, forecastKcal);
+
+  const goal = settings.dailyKcal;
+  const diff = finalForecast - goal;
+  let tone = 'ok';
+  let message = '';
+  if (Math.abs(diff) <= goal * 0.05) {
+    tone = 'ok';
+    message = `Bei dem Tempo landest du bei ~${finalForecast} kcal &mdash; fast genau im Ziel.`;
+  } else if (diff > 0) {
+    tone = 'over';
+    message = `Bei dem Tempo landest du bei ~${finalForecast} kcal, das sind ${diff} kcal &uuml;ber deinem Ziel.`;
+  } else {
+    tone = 'under';
+    message = `Bei dem Tempo landest du bei ~${finalForecast} kcal, das sind ${Math.abs(diff)} kcal unter deinem Ziel.`;
+  }
+
+  forecastEl.className = 'live-forecast ' + tone;
+  forecastEl.innerHTML = `
+    <svg class="forecast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M3 3v18h18"/>
+      <path d="M7 14l4-4 4 4 5-5"/>
+    </svg>
+    <span>${message}</span>
+  `;
+  forecastEl.classList.remove('hidden');
+}
+
+// ---- Voice-Input fuer KI-Schaetzung ----
+
+let voiceRecognition = null;
+
+function startVoiceInput() {
+  const input = document.getElementById('manual-ai-input');
+  const btn = document.getElementById('manual-voice-btn');
+  if (!input || !btn) return;
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    showToast('Spracheingabe nicht unterstuetzt');
+    return;
+  }
+
+  if (voiceRecognition) {
+    try { voiceRecognition.stop(); } catch (e) {}
+    voiceRecognition = null;
+    btn.classList.remove('recording');
+    return;
+  }
+
+  voiceRecognition = new SR();
+  voiceRecognition.lang = 'de-DE';
+  voiceRecognition.interimResults = true;
+  voiceRecognition.continuous = false;
+
+  btn.classList.add('recording');
+  showToast('Sprich jetzt...');
+
+  voiceRecognition.onresult = (event) => {
+    let finalTranscript = '';
+    let interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) finalTranscript += transcript;
+      else interimTranscript += transcript;
+    }
+    if (finalTranscript) input.value = finalTranscript.trim();
+    else if (interimTranscript) input.value = interimTranscript.trim();
+  };
+
+  voiceRecognition.onerror = (e) => {
+    btn.classList.remove('recording');
+    voiceRecognition = null;
+    if (e.error !== 'aborted' && e.error !== 'no-speech') {
+      showToast('Spracheingabe-Fehler: ' + e.error);
+    }
+  };
+
+  voiceRecognition.onend = () => {
+    btn.classList.remove('recording');
+    voiceRecognition = null;
+    // Wenn etwas eingetippt wurde, automatisch KI-Schaetzung starten
+    if (input.value.trim().length > 2) {
+      setTimeout(() => runManualAiEstimate(), 200);
+    }
+  };
+
+  try {
+    voiceRecognition.start();
+  } catch (e) {
+    btn.classList.remove('recording');
+    voiceRecognition = null;
+    showToast('Spracheingabe konnte nicht gestartet werden');
+  }
 }
 
 // ---- Quick Add ----
@@ -1603,6 +1782,200 @@ async function renderWeightChart() {
   const dots = points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" class="chart-dot"/>`).join('');
 
   chartEl.innerHTML = `${gridSvg}<polygon points="${area}" class="chart-area"/><polyline points="${polyline}" class="chart-line"/>${dots}`;
+}
+
+// ---- Wochen-KI-Analyse ----
+
+async function runWeeklyAiAnalysis() {
+  const btn = document.getElementById('btn-weekly-ai');
+  const resultEl = document.getElementById('weekly-ai-result');
+  if (!btn || !resultEl) return;
+
+  const settings = await getSettings();
+  if (!settings.geminiApiKey) {
+    showToast('Bitte KI-Key in Einstellungen setzen');
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Analysiere Woche...';
+  resultEl.classList.add('hidden');
+  resultEl.textContent = '';
+
+  try {
+    const all = await getAllEntries();
+    const now = new Date();
+    const daysText = [];
+    const productCounts = {};
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const ds = d.toISOString().split('T')[0];
+      const dayEntries = all.filter(e => e.date.startsWith(ds));
+      const kcal = Math.round(dayEntries.reduce((s, e) => s + (e.totalKcal || 0), 0));
+      const protein = Math.round(dayEntries.reduce((s, e) => s + (e.totalProtein || 0), 0));
+      const carbs = Math.round(dayEntries.reduce((s, e) => s + (e.totalCarbs || 0), 0));
+      const fat = Math.round(dayEntries.reduce((s, e) => s + (e.totalFat || 0), 0));
+      const dayName = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];
+      daysText.push(`${dayName} ${d.getDate()}.${d.getMonth()+1}: ${kcal} kcal, P ${protein}g, C ${carbs}g, F ${fat}g${dayEntries.length === 0 ? ' (keine Eintraege)' : ''}`);
+
+      dayEntries.forEach(e => {
+        const name = e.productName;
+        productCounts[name] = (productCounts[name] || 0) + 1;
+      });
+    }
+
+    const topProducts = Object.entries(productCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => `${name} (${count}x)`);
+
+    const weeklyData = {
+      daysText: daysText.join('\n'),
+      goals: {
+        kcal: settings.dailyKcal,
+        protein: settings.dailyProtein,
+        carbs: settings.dailyCarbs || 250,
+        fat: settings.dailyFat || 70
+      },
+      topProducts: topProducts.length > 0 ? topProducts : ['Keine Daten']
+    };
+
+    const analysis = await analyzeWeekWithGemini(weeklyData, settings.geminiApiKey);
+
+    resultEl.innerHTML = `
+      <div class="weekly-ai-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 2l2.4 6.8L22 10l-5.6 4.8L18 22l-6-3.6L6 22l1.6-7.2L2 10l7.6-1.2z"/>
+        </svg>
+        <strong>Deine Wochenanalyse</strong>
+      </div>
+      <div class="weekly-ai-body">${escapeHtml(analysis).replace(/\n/g, '<br>')}</div>
+    `;
+    resultEl.classList.remove('hidden');
+    haptic();
+  } catch (err) {
+    console.error('[Weekly AI] Fehler:', err);
+    showToast('Fehler bei Wochenanalyse');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ---- Monats-Rueckblick ----
+
+async function renderMonthlyReview() {
+  const container = document.getElementById('monthly-review-content');
+  if (!container) return;
+
+  const all = await getAllEntries();
+  const settings = await getSettings();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStartStr = monthStart.toISOString().split('T')[0];
+  const monthName = monthStart.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+
+  const monthEntries = all.filter(e => e.date >= monthStartStr);
+  if (monthEntries.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding:20px;">
+        <p>Noch keine Daten fuer ${escapeHtml(monthName)}.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Aggregation
+  const dayMap = {};
+  monthEntries.forEach(e => {
+    const d = e.date.split('T')[0];
+    if (!dayMap[d]) dayMap[d] = { kcal: 0, protein: 0, carbs: 0, fat: 0, count: 0 };
+    dayMap[d].kcal += e.totalKcal || 0;
+    dayMap[d].protein += e.totalProtein || 0;
+    dayMap[d].carbs += e.totalCarbs || 0;
+    dayMap[d].fat += e.totalFat || 0;
+    dayMap[d].count++;
+  });
+  const loggedDays = Object.keys(dayMap).length;
+  const avgKcal = Math.round(Object.values(dayMap).reduce((s, d) => s + d.kcal, 0) / loggedDays);
+  const avgProtein = Math.round(Object.values(dayMap).reduce((s, d) => s + d.protein, 0) / loggedDays);
+
+  // Ziel-Hit-Rate
+  const inRangeDays = Object.values(dayMap).filter(d => {
+    const ratio = d.kcal / settings.dailyKcal;
+    return ratio >= 0.85 && ratio <= 1.1;
+  }).length;
+  const hitRate = Math.round((inRangeDays / loggedDays) * 100);
+
+  // Meistgegessene Produkte
+  const productCounts = {};
+  monthEntries.forEach(e => {
+    productCounts[e.productName] = (productCounts[e.productName] || 0) + 1;
+  });
+  const topProducts = Object.entries(productCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  // Beste Streak im Monat (zusammenhaengende Tage mit Eintraegen)
+  const sortedDays = Object.keys(dayMap).sort();
+  let bestStreak = 0, currentStreak = 1;
+  for (let i = 1; i < sortedDays.length; i++) {
+    const prev = new Date(sortedDays[i-1]);
+    const cur = new Date(sortedDays[i]);
+    const diff = Math.round((cur - prev) / (1000 * 60 * 60 * 24));
+    if (diff === 1) {
+      currentStreak++;
+      bestStreak = Math.max(bestStreak, currentStreak);
+    } else {
+      currentStreak = 1;
+    }
+  }
+  bestStreak = Math.max(bestStreak, currentStreak);
+
+  container.innerHTML = `
+    <div class="monthly-header">
+      <h3>${escapeHtml(monthName)}</h3>
+      <p class="monthly-sub">${loggedDays} Tage geloggt &bull; ${monthEntries.length} Eintraege</p>
+    </div>
+    <div class="monthly-stats-grid">
+      <div class="monthly-stat">
+        <span class="monthly-stat-val">${avgKcal}</span>
+        <span class="monthly-stat-label">&Oslash; kcal/Tag</span>
+      </div>
+      <div class="monthly-stat">
+        <span class="monthly-stat-val">${avgProtein}g</span>
+        <span class="monthly-stat-label">&Oslash; Protein</span>
+      </div>
+      <div class="monthly-stat">
+        <span class="monthly-stat-val">${hitRate}%</span>
+        <span class="monthly-stat-label">im Zielbereich</span>
+      </div>
+      <div class="monthly-stat">
+        <span class="monthly-stat-val">${bestStreak}</span>
+        <span class="monthly-stat-label">beste Streak</span>
+      </div>
+    </div>
+    <div class="monthly-top">
+      <h4>Dein Top 5</h4>
+      <ol class="monthly-top-list">
+        ${topProducts.map(([name, count]) => `
+          <li>
+            <span class="top-name">${escapeHtml(name)}</span>
+            <span class="top-count">${count}&times;</span>
+          </li>
+        `).join('')}
+      </ol>
+    </div>
+    <button class="btn-secondary full-width" onclick="hideModal('modal-monthly-review')" style="margin-top:14px;">Schliessen</button>
+  `;
+}
+
+function openMonthlyReview() {
+  renderMonthlyReview();
+  showModal('modal-monthly-review');
 }
 
 // ---- CSV Export ----

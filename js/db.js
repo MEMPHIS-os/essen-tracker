@@ -201,11 +201,24 @@ async function getAllEntries() {
 // ---- Recent Products ----
 
 async function saveRecentProduct(product) {
+  // Wenn schon ein Eintrag existiert, useCount + pinned uebernehmen
+  const existing = await dbGet('recentProducts', product.productName);
+  if (existing) {
+    product.useCount = (existing.useCount || 1) + 1;
+    product.pinned = existing.pinned || false;
+    product.firstUsed = existing.firstUsed || existing.lastUsed || Date.now();
+  } else {
+    product.useCount = 1;
+    product.pinned = false;
+    product.firstUsed = Date.now();
+  }
   await dbPut('recentProducts', product);
+
+  // Cleanup: behalte die 50 juengsten UND alle gepinnten
   const all = await dbGetAll('recentProducts');
-  if (all.length > 30) {
-    all.sort((a, b) => a.lastUsed - b.lastUsed);
-    const toDelete = all.slice(0, all.length - 30);
+  if (all.length > 50) {
+    const unpinned = all.filter(p => !p.pinned).sort((a, b) => a.lastUsed - b.lastUsed);
+    const toDelete = unpinned.slice(0, all.length - 50);
     for (const p of toDelete) {
       await dbDelete('recentProducts', p.productName);
     }
@@ -215,6 +228,27 @@ async function saveRecentProduct(product) {
 async function getRecentProducts() {
   const all = await dbGetAll('recentProducts');
   return all.sort((a, b) => b.lastUsed - a.lastUsed);
+}
+
+async function togglePinnedProduct(productName) {
+  const p = await dbGet('recentProducts', productName);
+  if (!p) return false;
+  p.pinned = !p.pinned;
+  await dbPut('recentProducts', p);
+  return p.pinned;
+}
+
+async function getFavoriteProducts(limit = 10) {
+  const all = await dbGetAll('recentProducts');
+  // Pinned first, dann nach useCount, dann nach lastUsed
+  return all
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      const countDiff = (b.useCount || 0) - (a.useCount || 0);
+      if (countDiff !== 0) return countDiff;
+      return (b.lastUsed || 0) - (a.lastUsed || 0);
+    })
+    .slice(0, limit);
 }
 
 // ---- Barcode Cache ----

@@ -263,6 +263,56 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
   };
 }
 
+// Analyse einer ganzen Woche: Gemini bekommt Kurz-Statistik und gibt Freitext-Tipp zurueck
+async function analyzeWeekWithGemini(weeklyData, apiKey) {
+  const prompt = `Du bist ein freundlicher Ernaehrungs-Coach. Hier sind die Daten eines Nutzers aus den letzten 7 Tagen:
+
+${weeklyData.daysText}
+
+Ziele des Nutzers:
+- Kalorien: ${weeklyData.goals.kcal} kcal/Tag
+- Protein: ${weeklyData.goals.protein}g/Tag
+- Carbs: ${weeklyData.goals.carbs}g/Tag
+- Fett: ${weeklyData.goals.fat}g/Tag
+
+Top-Produkte (haeufig gegessen): ${weeklyData.topProducts.join(', ')}
+
+Analysiere kurz (max 8 Saetze, auf Deutsch, in Du-Form) und gib konkrete Tipps:
+1. Wie lief die Woche generell? (1 Satz)
+2. Was war auffaellig positiv? (1-2 Saetze)
+3. Wo gibt es Verbesserungspotential? (2-3 Saetze, konkret)
+4. Ein konkreter Tipp fuer naechste Woche (1-2 Saetze)
+
+Antworte NUR als Freitext, kein JSON, kein Markdown. Sei ermutigend aber ehrlich.`;
+
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 512,
+      thinkingConfig: { thinkingBudget: 0 }
+    }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini: leere Antwort');
+  return text.trim();
+}
+
 function numOrZero(v) {
   const n = parseFloat(v);
   return isNaN(n) ? 0 : n;

@@ -156,6 +156,12 @@ html, body {
 .ring-progress.kcal { stroke: var(--orange); }
 .ring-progress.protein { stroke: var(--blue); }
 
+/* Apple-Watch-style Tick-Marks bei 25/50/75/100% */
+.ring-ticks circle {
+  fill: var(--text-secondary);
+  opacity: 0.55;
+}
+
 .ring-label {
   position: absolute;
   top: 50%;
@@ -300,6 +306,78 @@ html, body {
 }
 .empty-state p { font-size: 16px; font-weight: 600; }
 .empty-sub { font-size: 13px; margin-top: 4px; font-weight: 400; }
+
+/* ---- Empty State Hero (Heute-Tab) ---- */
+.empty-state-hero {
+  padding: 32px 20px 40px;
+  animation: emptyHeroFloat 4s ease-in-out infinite;
+}
+.empty-hero-svg {
+  width: 120px;
+  height: 120px;
+  display: block;
+  margin: 0 auto 18px;
+  color: var(--orange);
+  opacity: 0.85;
+  filter: drop-shadow(0 4px 20px rgba(249, 115, 22, 0.15));
+}
+.empty-hero-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.empty-state-hero .empty-sub {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.empty-cta-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.btn-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  font-family: inherit;
+}
+.btn-empty-cta svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.btn-empty-cta.primary {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+}
+.btn-empty-cta.primary:active {
+  transform: scale(0.96);
+  background: #ea6513;
+}
+.btn-empty-cta.secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-empty-cta.secondary:active {
+  transform: scale(0.96);
+  background: var(--bg-card);
+}
+
+@keyframes emptyHeroFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
 
 /* ---- Buttons ---- */
 .btn-primary {
@@ -1505,17 +1583,157 @@ html, body {
 .collapsible-section summary::before { content: '\25B6 '; font-size: 10px; }
 .collapsible-section[open] summary::before { content: '\25BC '; }
 
-.extended-nutrients { padding: 8px 0; }
-.ext-nutrient-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-.ext-nutrient-label { flex: 0 0 100px; font-size: 13px; color: #ccc; }
-.ext-nutrient-bar { flex: 1; height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; }
-.ext-nutrient-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
-.ext-nutrient-fill.low { background: #555; }
-.ext-nutrient-fill.good { background: #22c55e; }
-.ext-nutrient-fill.over { background: #f97316; }
-.ext-nutrient-value { flex: 0 0 70px; text-align: right; font-size: 12px; color: #888; }
+#extended-nutrients-today {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px 12px 6px;
+}
 
-/* Sugar Traffic Light */
+.extended-nutrient-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px 13px 15px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  overflow: hidden;
+  min-width: 0;
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+.extended-nutrient-bar::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--nutrient-color, #f97316);
+  opacity: 0.9;
+}
+.extended-nutrient-bar:active { transform: scale(0.985); }
+
+.extended-nutrient-bar .bar-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9a9a9a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 36px;
+}
+
+.extended-nutrient-bar .bar-value {
+  font-weight: 700;
+  color: var(--text, #f5f5f5);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.extended-nutrient-bar .bar-value-current {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text, #f5f5f5);
+}
+.extended-nutrient-bar .bar-value-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9a9a9a;
+  margin-left: 1px;
+}
+.extended-nutrient-bar .bar-value-goal {
+  font-size: 11px;
+  font-weight: 500;
+  color: #707070;
+  margin-left: 2px;
+}
+.extended-nutrient-bar .bar-value-pct {
+  position: absolute;
+  top: 11px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--nutrient-color, #9a9a9a);
+  opacity: 0.9;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+/* Sugar tile already has traffic-dot in top-right, so push the % badge below the label */
+.extended-nutrient-bar:has(#sugar-traffic-light) .bar-value-pct {
+  display: none;
+}
+
+.extended-nutrient-bar .bar-track {
+  position: relative;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.extended-nutrient-bar .bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--nutrient-color, #f97316);
+  box-shadow: 0 0 10px -2px var(--nutrient-color, #f97316);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Per-nutrient accent colors via CSS variable */
+.extended-nutrient-bar:has(.bar-fill.sugar)    { --nutrient-color: #f472b6; }
+.extended-nutrient-bar:has(.bar-fill.fiber)    { --nutrient-color: #84cc16; }
+.extended-nutrient-bar:has(.bar-fill.satfat)   { --nutrient-color: #f59e0b; }
+.extended-nutrient-bar:has(.bar-fill.sodium)   { --nutrient-color: #60a5fa; }
+.extended-nutrient-bar:has(.bar-fill.calcium)  { --nutrient-color: #e5e7eb; }
+.extended-nutrient-bar:has(.bar-fill.iron)     { --nutrient-color: #ef4444; }
+.extended-nutrient-bar:has(.bar-fill.vitamind) { --nutrient-color: #fbbf24; }
+
+/* Fallback for browsers without :has() — explicit gradient on fills */
+.bar-fill.sugar    { background: linear-gradient(90deg, #ec4899, #f472b6); }
+.bar-fill.fiber    { background: linear-gradient(90deg, #65a30d, #a3e635); }
+.bar-fill.satfat   { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.bar-fill.sodium   { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.bar-fill.calcium  { background: linear-gradient(90deg, #cbd5e1, #f1f5f9); }
+.bar-fill.iron     { background: linear-gradient(90deg, #dc2626, #f87171); }
+.bar-fill.vitamind { background: linear-gradient(90deg, #f59e0b, #fde047); }
+
+/* Traffic dot for sugar — positioned top-right of tile */
+.extended-nutrient-bar .traffic-dot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.35);
+}
+.traffic-dot.green  { background: #22c55e; box-shadow: 0 0 0 2px rgba(0,0,0,0.35), 0 0 8px rgba(34,197,94,0.6); }
+.traffic-dot.orange { background: #f97316; box-shadow: 0 0 0 2px rgba(0,0,0,0.35), 0 0 8px rgba(249,115,22,0.6); }
+.traffic-dot.red    { background: #ef4444; box-shadow: 0 0 0 2px rgba(0,0,0,0.35), 0 0 8px rgba(239,68,68,0.6); }
+
+/* Glass-mode variant */
+body.glass-mode .extended-nutrient-bar {
+  background: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  border-color: rgba(255,255,255,0.12);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;
+}
+body.glass-mode .extended-nutrient-bar .bar-track {
+  background: rgba(255,255,255,0.1);
+}
+
+/* Legacy sugar-traffic classes (kept for any other callers) */
 .sugar-traffic { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 .sugar-dot { width: 12px; height: 12px; border-radius: 50%; }
 .sugar-dot.green { background: #22c55e; }
@@ -2117,6 +2335,114 @@ body.light-theme .entry-time {
   border-radius: 6px;
 }
 .undo-toast-btn:active { background: rgba(249, 115, 22, 0.15); }
+
+/* ============================================
+   Glassmorphism Mode (optional, per Setting)
+   body.glass-mode  aktiviert frosted Look
+   ============================================ */
+body.glass-mode {
+  /* Radialer Farbverlauf als Hintergrund-Vibe */
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(249, 115, 22, 0.22) 0%, transparent 48%),
+    radial-gradient(ellipse at 85% 100%, rgba(168, 85, 247, 0.22) 0%, transparent 52%),
+    radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 70%),
+    #08080c !important;
+  background-attachment: fixed;
+}
+
+/* Card-Variablen ueberschreiben - semi-transparent statt solid */
+body.glass-mode {
+  --bg-card: rgba(30, 30, 42, 0.55);
+  --bg-modal: rgba(22, 22, 30, 0.85);
+  --bg-input: rgba(50, 50, 62, 0.75);
+  --border: rgba(255, 255, 255, 0.12);
+  --tab-bg: rgba(14, 14, 22, 0.72);
+}
+
+/* Grosse Oberflaechen bekommen echten Frosted-Blur */
+body.glass-mode #header,
+body.glass-mode #tab-bar,
+body.glass-mode .entry-card,
+body.glass-mode .water-section,
+body.glass-mode .caffeine-section,
+body.glass-mode .settings-group,
+body.glass-mode .modal-content,
+body.glass-mode .collapsible-section,
+body.glass-mode #meal-templates-section,
+body.glass-mode #recent-products-section,
+body.glass-mode .live-forecast,
+body.glass-mode .nutrient-warnings .warning-chip,
+body.glass-mode .recent-chip,
+body.glass-mode .template-chip,
+body.glass-mode #undo-toast,
+body.glass-mode #toast {
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Top-Highlight fuer iOS-Tiefeneffekt */
+body.glass-mode .entry-card,
+body.glass-mode .water-section,
+body.glass-mode .caffeine-section,
+body.glass-mode .settings-group,
+body.glass-mode .collapsible-section,
+body.glass-mode .live-forecast {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Header & Tab-Bar duenner und staerker frosted */
+body.glass-mode #header {
+  background: rgba(10, 10, 14, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+body.glass-mode #tab-bar {
+  background: rgba(10, 10, 14, 0.7);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Progress-Ring mit Glow */
+body.glass-mode .ring-progress.kcal {
+  filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.55));
+}
+body.glass-mode .ring-progress.protein {
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.55));
+}
+
+/* Bottle bekommt sanftes Glow */
+body.glass-mode .water-bottle-wrap {
+  filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.25));
+}
+
+/* Modals heller frosted */
+body.glass-mode .modal {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Buttons im Glass-Modus etwas transparenter */
+body.glass-mode .btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+body.glass-mode .btn-tertiary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Empty-State-Hero Icon bekommt staerkeren Glow */
+body.glass-mode .empty-hero-svg {
+  filter: drop-shadow(0 6px 30px rgba(249, 115, 22, 0.35));
+}
+
+/* Tick-Marks heller damit sie auf dunklem Glas sichtbar bleiben */
+body.glass-mode .ring-ticks circle {
+  fill: rgba(255, 255, 255, 0.6);
+  opacity: 0.85;
+}
 
 /* ---- Utilities ---- */
 .hidden { display: none !important; }

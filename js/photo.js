@@ -93,40 +93,60 @@ async function handlePhotoSelected(event) {
 
 async function analyzeWithGemini(file, apiKey) {
   // Resize + base64-encode before sending (Gemini accepts up to ~20MB but smaller is faster)
-  const base64 = await resizeAndEncodeImage(file, 1024);
+  const base64 = await resizeAndEncodeImage(file, 1280);
 
-  const prompt = `Du bist ein Ernaehrungs-Experte. Analysiere dieses Foto eines Lebensmittels oder einer Naehrwerttabelle.
+  const prompt = `Du bist ein erfahrener Ernaehrungs-Experte und analysierst Fotos von Lebensmitteln, Gerichten und Naehrwerttabellen.
 
-Gib NUR valides JSON zurueck (kein Markdown, keine Erklaerung), mit diesen Feldern:
+ZWEI-PHASEN-VORGEHEN (denke Schritt fuer Schritt, gib aber nur JSON zurueck):
+PHASE 1 - IDENTIFIZIEREN:
+  Schaue dir das Bild genau an. Was ist zu sehen?
+  - Eine Naehrwerttabelle / ein Produktetikett?  -> detectedType = "label"
+  - Ein fertig zubereitetes Gericht auf Teller/Schale (Pasta, Lasagne, Pizza, Curry, Burger, Suppe, Bowl...)?  -> detectedType = "dish"
+  - Rohe Zutaten oder einzelne Lebensmittel (Obst, Gemuese, Brot, Nuesse...)?  -> detectedType = "raw"
+  - Verpacktes Produkt im Regal/Hand?  -> detectedType = "package"
+  Erkenne das Gericht beim Namen (z.B. "Lasagne Bolognese", "Hawaii Pizza", "Huehnchen-Curry mit Reis", "Chili con Carne"). Komponenten nennen, wenn moeglich.
+
+PHASE 2 - WERTE ABLEITEN:
+  Basierend auf dem identifizierten Gericht: Typische Naehrwerte pro 100g ansetzen.
+  Fuer Mischgerichte: durchschnittliche Zusammensetzung annehmen.
+
+WICHTIGE REGEL (asymmetrische Unsicherheit):
+- Bei NAEHRWERTTABELLE (detectedType="label"): Nur Werte uebernehmen, die wirklich lesbar sind. Bei unlesbaren Feldern -> 0.
+- Bei ESSEN (detectedType="dish", "raw", "package"): IMMER eine realistische Schaetzung liefern. Niemals 0 fuer kcal/protein/carbs/fat setzen nur weil du unsicher bist. Lieber eine plausible Schaetzung auf Basis typischer Rezepte. 0 nur wenn das Nehrwert-Feld naturgemaess 0 ist (z.B. Zucker bei Pommes).
+
+RICHTWERTE FUER MISCHGERICHTE (pro 100g):
+- Lasagne Bolognese: ~150 kcal, 8g Protein, 12g Carbs, 7g Fett - typische Portion 350-450g
+- Pizza (belegt): ~265 kcal, 11g Protein, 30g Carbs, 11g Fett - typische Portion 300g
+- Spaghetti Bolognese: ~150 kcal, 7g Protein, 18g Carbs, 5g Fett - typische Portion 350g
+- Huehnchen-Curry mit Reis: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - typische Portion 400g
+- Burger (Cheeseburger): ~260 kcal, 14g Protein, 22g Carbs, 13g Fett - typische Portion 220g
+- Doener (Kebab): ~215 kcal, 14g Protein, 18g Carbs, 9g Fett - typische Portion 400g
+- Gruener Salat mit Dressing: ~80 kcal, 2g Protein, 5g Carbs, 5g Fett - typische Portion 250g
+- Suppe/Eintopf (Gemuese): ~60 kcal, 3g Protein, 8g Carbs, 2g Fett - typische Portion 350g
+- Chili con Carne: ~130 kcal, 8g Protein, 13g Carbs, 5g Fett - typische Portion 350g
+- Sushi (gemischt): ~150 kcal, 6g Protein, 28g Carbs, 2g Fett - typische Portion 250g
+- Bowl mit Reis+Gemuese+Protein: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - typische Portion 400g
+
+RICHTWERTE FUER EINZELSTUECKE:
+1 mittlerer Apfel ~180g, 1 Banane ~120g, 1 Ei ~60g, 1 Scheibe Brot ~30g,
+1 Becher Joghurt ~150g, 1 Handvoll Nuesse ~30g, 1 Riegel Schoko ~100g
+
+ANTWORT-SCHEMA (gib NUR dieses JSON zurueck, kein Markdown):
 {
-  "name": "Produktname auf Deutsch, kurz (max 30 Zeichen)",
+  "name": "Produktname auf Deutsch, konkret (max 60 Zeichen)",
+  "detectedType": "label" | "dish" | "raw" | "package",
   "kcal": Zahl (pro 100g),
   "protein": Zahl (g pro 100g),
   "carbs": Zahl (g pro 100g),
   "fat": Zahl (g pro 100g),
-  "sugar": Zahl (g pro 100g, 0 wenn unbekannt),
-  "fiber": Zahl (g pro 100g, 0 wenn unbekannt),
-  "saturatedFat": Zahl (g pro 100g, 0 wenn unbekannt),
-  "sodium": Zahl (mg pro 100g, 0 wenn unbekannt),
-  "portionDesc": "kurze Beschreibung der sichtbar gezeigten Portion auf Deutsch, z.B. '5 mittlere Aepfel', '1 Becher Joghurt', '1 Teller Spaghetti Bolognese', '2 Scheiben Vollkornbrot'",
-  "portionGrams": Zahl (geschaetztes Gesamtgewicht der gezeigten Portion in Gramm, 0 wenn komplett unklar)
+  "sugar": Zahl (g pro 100g),
+  "fiber": Zahl (g pro 100g),
+  "saturatedFat": Zahl (g pro 100g),
+  "sodium": Zahl (mg pro 100g),
+  "portionDesc": "kurze Portionsbeschreibung (max 40 Zeichen), z.B. '1 Teller Lasagne', '1 grosses Stueck Pizza', '1 Becher Joghurt'",
+  "portionGrams": Zahl (geschaetztes Gesamtgewicht der sichtbaren Portion in Gramm),
+  "confidence": Zahl zwischen 0.0 und 1.0 (wie sicher bist du bei der Identifikation)
 }
-
-Regeln fuer Naehrwerte:
-- Zahlen IMMER pro 100g angeben, NIE pro Portion
-- Wenn eine Naehrwerttabelle sichtbar ist: Werte daraus uebernehmen (Spalte "pro 100g")
-- Wenn nur Essen sichtbar ist: auf Basis typischer Werte fuer dieses Lebensmittel schaetzen
-- Feld 0 setzen, wenn unsicher - nicht raten
-
-Regeln fuer Portion (portionDesc + portionGrams):
-- Einzelne Stuecke zaehlen und mit typischem Gewicht multiplizieren
-- Richtwerte: 1 mittlerer Apfel ~180g, 1 Banane ~120g, 1 Ei ~60g, 1 Scheibe Brot ~30g,
-  1 Becher Joghurt ~150g, 1 Portion Nudeln gekocht ~250g, 1 Pizzastueck ~150g,
-  1 Handvoll Nuesse ~30g, 1 Riegel Schoko ~100g
-- Bei Naehrwerttabelle: portionGrams = Packungsinhalt (z.B. 150g Becher), portionDesc = Packungsname
-- Bei Teller/Schale mit Essen: realistisch schaetzen nach Fuellung und Groesse
-- portionGrams auf 0 setzen, wenn du die Portion nicht vernuenftig abschaetzen kannst
-- portionDesc kurz halten (max 40 Zeichen)
 
 Gib NUR das JSON zurueck, nichts davor oder danach.`;
 
@@ -138,10 +158,9 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
       ]
     }],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0.3,
       maxOutputTokens: 1024,
-      responseMimeType: 'application/json',
-      thinkingConfig: { thinkingBudget: 0 }
+      responseMimeType: 'application/json'
     }
   };
 
@@ -167,7 +186,8 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
   const parsed = JSON.parse(cleaned);
 
   return {
-    name: parsed.name || '',
+    name: (parsed.name || '').toString().slice(0, 80),
+    detectedType: parsed.detectedType || '',
     kcal: numOrZero(parsed.kcal),
     protein: numOrZero(parsed.protein),
     carbs: numOrZero(parsed.carbs),
@@ -178,40 +198,50 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     sodium: numOrZero(parsed.sodium),
     portionDesc: (parsed.portionDesc || '').toString().slice(0, 60),
     portionGrams: numOrZero(parsed.portionGrams),
-    confidence: 1.0
+    confidence: parsed.confidence != null ? numOrZero(parsed.confidence) : 0.8
   };
 }
 
 // Text-only variant: schaetzt Naehrwerte aus Gericht-Beschreibung
 async function analyzeDishWithGemini(description, apiKey) {
-  const prompt = `Du bist ein Ernaehrungs-Experte. Der User hat folgendes Gericht gegessen: "${description}".
+  const prompt = `Du bist ein erfahrener Ernaehrungs-Experte. Der User hat folgendes Gericht gegessen: "${description}".
 
-Schaetze realistische Naehrwerte fuer dieses Gericht basierend auf typischen Rezepten und Zutaten.
+VORGEHEN:
+1. Identifiziere das Gericht genau (welche Kueche, welche Zutaten, wie zubereitet).
+2. Wenn der User eine Menge nennt (z.B. "500g Spaghetti", "2 Brotscheiben"), uebernimm sie als portionGrams bzw. rechne Stueckzahlen in Gramm um.
+3. Setze realistische Naehrwerte pro 100g auf Basis typischer Rezepte. Niemals 0 fuer kcal/protein/carbs/fat nur aus Unsicherheit - lieber plausibel schaetzen.
 
-Gib NUR valides JSON zurueck (kein Markdown, keine Erklaerung), mit diesen Feldern:
+RICHTWERTE FUER MISCHGERICHTE (pro 100g):
+- Lasagne Bolognese: ~150 kcal, 8g Protein, 12g Carbs, 7g Fett - Portion 350-450g
+- Pizza (belegt): ~265 kcal, 11g Protein, 30g Carbs, 11g Fett - Portion 300g
+- Spaghetti Bolognese: ~150 kcal, 7g Protein, 18g Carbs, 5g Fett - Portion 350g
+- Huehnchen-Curry mit Reis: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - Portion 400g
+- Cheeseburger: ~260 kcal, 14g Protein, 22g Carbs, 13g Fett - Portion 220g
+- Doener: ~215 kcal, 14g Protein, 18g Carbs, 9g Fett - Portion 400g
+- Burrito: ~220 kcal, 10g Protein, 25g Carbs, 9g Fett - Portion 350g
+- Salat mit Dressing: ~80 kcal, 2g Protein, 5g Carbs, 5g Fett - Portion 250g
+- Suppe/Eintopf: ~60 kcal, 3g Protein, 8g Carbs, 2g Fett - Portion 350g
+- Chili con Carne: ~130 kcal, 8g Protein, 13g Carbs, 5g Fett - Portion 350g
+- Sushi (gemischt): ~150 kcal, 6g Protein, 28g Carbs, 2g Fett - Portion 250g
+- Bowl: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - Portion 400g
+
+ANTWORT-SCHEMA (nur dieses JSON, kein Markdown):
 {
-  "name": "Produktname auf Deutsch, kurz (max 30 Zeichen)",
+  "name": "Konkreter Produktname auf Deutsch (max 60 Zeichen)",
   "kcal": Zahl (pro 100g),
   "protein": Zahl (g pro 100g),
   "carbs": Zahl (g pro 100g),
   "fat": Zahl (g pro 100g),
-  "sugar": Zahl (g pro 100g, 0 wenn unbekannt),
-  "fiber": Zahl (g pro 100g, 0 wenn unbekannt),
-  "saturatedFat": Zahl (g pro 100g, 0 wenn unbekannt),
-  "sodium": Zahl (mg pro 100g, 0 wenn unbekannt),
-  "portionDesc": "kurze deutsche Beschreibung der typischen Portion (max 40 Zeichen), z.B. '1 grosser Burrito', '1 Teller Spaghetti'",
-  "portionGrams": Zahl (typisches Gesamtgewicht einer normalen Portion in Gramm)
+  "sugar": Zahl (g pro 100g),
+  "fiber": Zahl (g pro 100g),
+  "saturatedFat": Zahl (g pro 100g),
+  "sodium": Zahl (mg pro 100g),
+  "portionDesc": "kurze deutsche Beschreibung der Portion (max 40 Zeichen)",
+  "portionGrams": Zahl (Gesamtgewicht der Portion in Gramm),
+  "confidence": Zahl zwischen 0.0 und 1.0
 }
 
-Regeln:
-- Naehrwerte IMMER pro 100g, NIE pro Portion
-- portionGrams = typische Portionsgroesse in Gramm fuer dieses Gericht
-- Wenn User eine Menge angibt (z.B. "500g Spaghetti"), dann portionGrams = diese Menge
-- Realistische Werte: Burrito ~220 kcal/100g, Spaghetti Bolognese ~150 kcal/100g, Pizza ~270 kcal/100g
-- Typische Portionen: Burrito 300-400g, Teller Pasta 300-400g, Pizza 250-350g, Salat 200-300g
-- Bei Unsicherheit lieber konservativ schaetzen
-
-Beispiel: "Barbecue Burrito" -> { "name": "Barbecue Burrito", "kcal": 220, "protein": 10, "carbs": 25, "fat": 9, "sugar": 4, "fiber": 3, "saturatedFat": 3, "sodium": 600, "portionDesc": "1 grosser Burrito", "portionGrams": 350 }
+Beispiel: "Barbecue Burrito" -> { "name": "Barbecue Burrito", "kcal": 220, "protein": 10, "carbs": 25, "fat": 9, "sugar": 4, "fiber": 3, "saturatedFat": 3, "sodium": 600, "portionDesc": "1 grosser Burrito", "portionGrams": 350, "confidence": 0.85 }
 
 Gib NUR das JSON zurueck, nichts davor oder danach.`;
 
@@ -220,10 +250,9 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
       parts: [{ text: prompt }]
     }],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0.3,
       maxOutputTokens: 1024,
-      responseMimeType: 'application/json',
-      thinkingConfig: { thinkingBudget: 0 }
+      responseMimeType: 'application/json'
     }
   };
 
@@ -248,7 +277,7 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
   const parsed = JSON.parse(cleaned);
 
   return {
-    name: parsed.name || '',
+    name: (parsed.name || '').toString().slice(0, 80),
     kcal: numOrZero(parsed.kcal),
     protein: numOrZero(parsed.protein),
     carbs: numOrZero(parsed.carbs),
@@ -259,7 +288,7 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     sodium: numOrZero(parsed.sodium),
     portionDesc: (parsed.portionDesc || '').toString().slice(0, 60),
     portionGrams: numOrZero(parsed.portionGrams),
-    confidence: 1.0
+    confidence: parsed.confidence != null ? numOrZero(parsed.confidence) : 0.8
   };
 }
 

@@ -8,10 +8,12 @@ let captureMode = 'barcode';
 
 function switchTab(tabBtn) {
   const page = tabBtn.dataset.page;
+  const alreadyActive = tabBtn.classList.contains('active');
   showPage(page);
 
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   tabBtn.classList.add('active');
+  if (!alreadyActive) haptic();
 
   // Update header
   const titles = {
@@ -146,8 +148,16 @@ function toggleCollapsible(header) {
 }
 
 // ---- Haptic Feedback (iOS-kompatibel) ----
+// Cached Flag - wird aus den Settings gehydrated und synchron ausgelesen,
+// damit haptic() ohne await aufgerufen werden kann.
+let _hapticsEnabled = true;
+
+function setHapticsEnabled(on) {
+  _hapticsEnabled = !!on;
+}
 
 function haptic() {
+  if (!_hapticsEnabled) return;
   if ('vibrate' in navigator) {
     try { navigator.vibrate(15); } catch (e) {}
   }
@@ -159,6 +169,50 @@ function haptic() {
     flash.style.opacity = '0';
     setTimeout(() => flash.remove(), 300);
   });
+}
+
+// ---- Count-Up-Animation fuer Zahlen ----
+// Parst die aktuelle Zahl im Element, interpoliert auf den Zielwert
+// und schreibt sie per rAF zurueck. Suffix wie 'g' oder 'kcal' wird angehaengt.
+// Laeuft eased (easeOutCubic) und stellt bei Tab-Wechsel/neuem Call die Animation sauber zurueck.
+const _countUpTimers = new WeakMap();
+
+function animateNumber(el, toValue, opts = {}) {
+  if (!el) return;
+  const duration = opts.duration != null ? opts.duration : 500;
+  const suffix = opts.suffix || '';
+  const decimals = opts.decimals != null ? opts.decimals : 0;
+
+  // Vorherige Animation desselben Elements abbrechen
+  const prev = _countUpTimers.get(el);
+  if (prev) cancelAnimationFrame(prev);
+
+  // From-Wert aus aktuellem Text parsen
+  const currentText = (el.textContent || '').replace(/[^\d.,\-]/g, '').replace(',', '.');
+  const fromValue = parseFloat(currentText) || 0;
+  const target = isFinite(toValue) ? toValue : 0;
+
+  // Nur Animieren wenn der Sprung spuerbar ist; sonst direkt setzen
+  if (Math.abs(target - fromValue) < 0.5 || duration <= 0) {
+    el.textContent = target.toFixed(decimals) + suffix;
+    return;
+  }
+
+  const start = performance.now();
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+  function tick(now) {
+    const progress = Math.min(1, (now - start) / duration);
+    const eased = easeOutCubic(progress);
+    const value = fromValue + (target - fromValue) * eased;
+    el.textContent = value.toFixed(decimals) + suffix;
+    if (progress < 1) {
+      _countUpTimers.set(el, requestAnimationFrame(tick));
+    } else {
+      _countUpTimers.delete(el);
+    }
+  }
+  _countUpTimers.set(el, requestAnimationFrame(tick));
 }
 
 // ---- Progress Ring Update ----

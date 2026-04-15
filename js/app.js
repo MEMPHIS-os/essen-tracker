@@ -24,6 +24,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(settings.theme || 'dark');
   applyUnits(settings.units || 'metric');
 
+  // Darstellung & Feedback hydraten BEVOR etwas gerendert wird,
+  // damit der Glass-Look und die Haptics-Einstellung sofort greifen.
+  applyGlassMode(!!settings.glassMode);
+  if (typeof setHapticsEnabled === 'function') {
+    setHapticsEnabled(settings.hapticsEnabled !== false);
+  }
+
   // Check onboarding — if needed, show overlay and wait
   if (typeof checkOnboarding === 'function') {
     const needsOnboarding = await checkOnboarding();
@@ -115,6 +122,8 @@ async function updateNotificationToggles() {
   const weeklyBtn = document.getElementById('btn-toggle-weekly');
   const mealBtn = document.getElementById('btn-toggle-meal');
   const hydrBtn = document.getElementById('btn-toggle-hydration');
+  const glassBtn = document.getElementById('btn-toggle-glass');
+  const hapticsBtn = document.getElementById('btn-toggle-haptics');
   if (dailyBtn) {
     dailyBtn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
     dailyBtn.classList.toggle('active', !!settings.dailyReminderEnabled);
@@ -131,6 +140,59 @@ async function updateNotificationToggles() {
     hydrBtn.textContent = settings.hydrationReminderEnabled ? 'An' : 'Aus';
     hydrBtn.classList.toggle('active', !!settings.hydrationReminderEnabled);
   }
+  if (glassBtn) {
+    glassBtn.textContent = settings.glassMode ? 'An' : 'Aus';
+    glassBtn.classList.toggle('active', !!settings.glassMode);
+  }
+  if (hapticsBtn) {
+    // Default = true wenn noch nie gesetzt
+    const on = settings.hapticsEnabled !== false;
+    hapticsBtn.textContent = on ? 'An' : 'Aus';
+    hapticsBtn.classList.toggle('active', on);
+  }
+}
+
+// ---- Darstellung & Feedback Toggles ----
+
+async function toggleGlassMode() {
+  const settings = await getSettings();
+  settings.glassMode = !settings.glassMode;
+  await saveSettingsData(settings);
+  applyGlassMode(settings.glassMode);
+  // Button synchron aktualisieren (kein await-Race)
+  const btn = document.getElementById('btn-toggle-glass');
+  if (btn) {
+    btn.textContent = settings.glassMode ? 'An' : 'Aus';
+    btn.classList.toggle('active', settings.glassMode);
+  }
+  haptic();
+}
+
+function applyGlassMode(on) {
+  document.body.classList.toggle('glass-mode', !!on);
+}
+
+async function toggleHaptics() {
+  const settings = await getSettings();
+  // Default ist true; erster Toggle schaltet auf false
+  const currentlyOn = settings.hapticsEnabled !== false;
+  settings.hapticsEnabled = !currentlyOn;
+  await saveSettingsData(settings);
+  setHapticsEnabled(settings.hapticsEnabled);
+  // Button synchron aktualisieren
+  const btn = document.getElementById('btn-toggle-haptics');
+  if (btn) {
+    btn.textContent = settings.hapticsEnabled ? 'An' : 'Aus';
+    btn.classList.toggle('active', settings.hapticsEnabled);
+  }
+  // Kleine Bestaetigung wenn gerade eingeschaltet
+  if (settings.hapticsEnabled) haptic();
+}
+
+// Heute-Tab -> Scan-Tab springen (vom Empty-State aus)
+function goToScanTab() {
+  const t = document.querySelector('.tab[data-page="page-scan"]');
+  if (t) switchTab(t);
 }
 
 // ---- Theme / Units ----
@@ -238,9 +300,9 @@ async function refreshTodayView() {
   const totalIron = entries.reduce((s, e) => s + (e.totalIron || 0), 0);
   const totalVitaminD = entries.reduce((s, e) => s + (e.totalVitaminD || 0), 0);
 
-  // Rings
-  document.getElementById('today-kcal').textContent = Math.round(totalKcal);
-  document.getElementById('today-protein').textContent = Math.round(totalProtein) + 'g';
+  // Rings - mit Count-Up-Animation
+  animateNumber(document.getElementById('today-kcal'), Math.round(totalKcal));
+  animateNumber(document.getElementById('today-protein'), Math.round(totalProtein), { suffix: 'g' });
   setRingProgress('ring-kcal', totalKcal / settings.dailyKcal);
   setRingProgress('ring-protein', totalProtein / settings.dailyProtein);
 
@@ -356,11 +418,13 @@ function updateExtendedBar(name, current, goal, unit) {
     fill.style.width = (ratio * 100) + '%';
   }
   if (text) {
-    if (unit === '\u00B5g') {
-      text.textContent = `${current.toFixed(1)}/${goal}${unit}`;
-    } else {
-      text.textContent = `${Math.round(current)}/${Math.round(goal)}${unit}`;
-    }
+    const isMicro = unit === '\u00B5g';
+    const curStr = isMicro ? current.toFixed(1) : String(Math.round(current));
+    const pct = goal > 0 ? Math.round((current / goal) * 100) : 0;
+    text.innerHTML =
+      `<span class="bar-value-current">${curStr}</span>` +
+      `<span class="bar-value-unit">${unit}</span>` +
+      `<span class="bar-value-pct">${pct}%</span>`;
   }
 }
 
@@ -426,6 +490,7 @@ async function removeWater() {
   const log = await getWaterLog(today);
   const glasses = Math.max(0, (log ? log.glasses : 0) - 1);
   await saveWaterLog(today, glasses);
+  haptic();
   refreshWaterDisplay();
 }
 
@@ -436,7 +501,7 @@ async function refreshWaterDisplay() {
   const glasses = log ? log.glasses : 0;
   const goal = settings.dailyWater || 8;
 
-  document.getElementById('water-count').textContent = glasses;
+  animateNumber(document.getElementById('water-count'), glasses, { duration: 350 });
   document.getElementById('water-goal').textContent = goal;
 
   // Bottle animation: empty-ratio 0 = full, 1 = empty.

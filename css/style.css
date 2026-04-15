@@ -982,15 +982,10 @@ html, body {
 }
 
 .water-header-row {
-  display: none;
+  display: contents;
 }
 
 .water-title {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
   display: none;
 }
 

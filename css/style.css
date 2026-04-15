@@ -1950,6 +1950,174 @@ html, body {
 .btn-ai-estimate:disabled { opacity: 0.6; cursor: wait; }
 .btn-ai-estimate:active { transform: scale(0.96); }
 
+/* ---- Entry Time Badge ---- */
+.entry-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.entry-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+body.light-theme .entry-time {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ---- Nutrient Warnings Strip ---- */
+.nutrient-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+.warning-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+  background: rgba(0, 0, 0, 0.2);
+}
+.warning-chip .warning-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.warning-sugar {
+  color: #f472b6;
+  border-color: rgba(244, 114, 182, 0.35);
+  background: rgba(244, 114, 182, 0.08);
+}
+.warning-satfat {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.35);
+  background: rgba(251, 146, 60, 0.08);
+}
+.warning-sodium {
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+/* ---- Meal Templates ---- */
+#meal-templates-section {
+  margin-bottom: 16px;
+}
+.template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.template-chip {
+  display: flex;
+  align-items: stretch;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.template-chip-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.template-chip-main:active {
+  background: rgba(245, 158, 11, 0.08);
+}
+.template-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.template-chip-info {
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+.template-chip-remove {
+  width: 32px;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.template-chip-remove svg { width: 14px; height: 14px; }
+.template-chip-remove:active { background: rgba(239, 68, 68, 0.12); color: var(--red); }
+
+/* ---- Entries Header Actions ---- */
+.entries-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ---- Undo Toast ---- */
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 82px;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.96);
+  color: #fff;
+  padding: 12px 14px 12px 18px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  z-index: 500;
+  max-width: calc(100% - 32px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.undo-toast-msg {
+  font-size: 13px;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.undo-toast-btn {
+  background: transparent;
+  color: var(--orange);
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.undo-toast-btn:active { background: rgba(249, 115, 22, 0.15); }
+
 /* ---- Utilities ---- */
 .hidden { display: none !important; }
 

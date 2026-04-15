@@ -100,6 +100,11 @@ async function initMainApp() {
   // Notifications check
   if (typeof checkPendingNotifications === 'function') checkPendingNotifications();
 
+  // Stuendliche Hydration-Pruefung solange die App offen ist
+  if (typeof checkPendingNotifications === 'function') {
+    setInterval(() => { checkPendingNotifications(); }, 30 * 60 * 1000); // alle 30 min
+  }
+
   // Update notification toggle states
   updateNotificationToggles();
 }
@@ -109,6 +114,7 @@ async function updateNotificationToggles() {
   const dailyBtn = document.getElementById('btn-toggle-daily');
   const weeklyBtn = document.getElementById('btn-toggle-weekly');
   const mealBtn = document.getElementById('btn-toggle-meal');
+  const hydrBtn = document.getElementById('btn-toggle-hydration');
   if (dailyBtn) {
     dailyBtn.textContent = settings.dailyReminderEnabled ? 'An' : 'Aus';
     dailyBtn.classList.toggle('active', !!settings.dailyReminderEnabled);
@@ -120,6 +126,10 @@ async function updateNotificationToggles() {
   if (mealBtn) {
     mealBtn.textContent = settings.mealRemindersEnabled ? 'An' : 'Aus';
     mealBtn.classList.toggle('active', !!settings.mealRemindersEnabled);
+  }
+  if (hydrBtn) {
+    hydrBtn.textContent = settings.hydrationReminderEnabled ? 'An' : 'Aus';
+    hydrBtn.classList.toggle('active', !!settings.hydrationReminderEnabled);
   }
 }
 
@@ -287,12 +297,55 @@ async function refreshTodayView() {
 
   // Recent products, water, streaks, caffeine, achievements
   await refreshRecentProducts();
+  await refreshMealTemplates();
   await refreshWaterDisplay();
   await refreshStreaks();
   if (typeof refreshCaffeineDisplay === 'function') await refreshCaffeineDisplay();
 
-  // Live forecast
+  // Live forecast + Nutrient-Warnings
   updateLiveForecast();
+  renderNutrientWarnings({ totalSugar, totalSatFat, totalSodium }, settings);
+}
+
+// ---- Nutrient Warnings ----
+// Zeigt kleine Chips oben wenn einzelne Naehrwerte kritisch sind.
+
+function renderNutrientWarnings(totals, settings) {
+  const el = document.getElementById('nutrient-warnings');
+  if (!el) return;
+  const warnings = [];
+
+  const sugarGoal = settings.dailySugar || 25;
+  if (totals.totalSugar > sugarGoal) {
+    warnings.push({ label: `Zucker ${Math.round(totals.totalSugar)}g`, kind: 'sugar' });
+  }
+
+  const satGoal = settings.dailySaturatedFat || 20;
+  if (totals.totalSatFat > satGoal) {
+    warnings.push({ label: `Ges. Fett ${Math.round(totals.totalSatFat)}g`, kind: 'satfat' });
+  }
+
+  const sodiumGoal = settings.dailySodium || 2300;
+  if (totals.totalSodium > sodiumGoal) {
+    warnings.push({ label: `Salz ${Math.round(totals.totalSodium)}mg`, kind: 'sodium' });
+  }
+
+  if (warnings.length === 0) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+
+  el.classList.remove('hidden');
+  el.innerHTML = warnings.map(w => `
+    <div class="warning-chip warning-${w.kind}">
+      <svg class="warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 9 v4"/><circle cx="12" cy="17" r="0.9" fill="currentColor"/>
+        <path d="M10.3 3.3 L2.5 17.5 a2 2 0 0 0 1.7 3 h15.6 a2 2 0 0 0 1.7 -3 L13.7 3.3 a2 2 0 0 0 -3.4 0 Z"/>
+      </svg>
+      <span>${w.label} &uuml;ber Ziel</span>
+    </div>
+  `).join('');
 }
 
 function updateExtendedBar(name, current, goal, unit) {
@@ -506,6 +559,124 @@ async function refreshRecentProducts() {
     });
     list.appendChild(chip);
   });
+}
+
+// ---- Undo-Toast (zuletzt geloeschter Eintrag) ----
+// Wird vom Swipe-to-Delete-Flow aufgerufen, um den Nutzer Rueckgaengig machen zu lassen.
+
+let _undoTimer = null;
+
+function showUndoToast(message, entry) {
+  const toast = document.getElementById('undo-toast');
+  if (!toast) return;
+  toast.querySelector('.undo-toast-msg').textContent = message;
+
+  clearTimeout(_undoTimer);
+  toast.classList.remove('hidden');
+
+  const btn = toast.querySelector('.undo-toast-btn');
+  const handler = async () => {
+    clearTimeout(_undoTimer);
+    toast.classList.add('hidden');
+    btn.removeEventListener('click', handler);
+    // Wiederherstellen
+    await dbPut('entries', entry);
+    refreshTodayView();
+    haptic();
+  };
+  btn.addEventListener('click', handler, { once: true });
+
+  _undoTimer = setTimeout(() => {
+    toast.classList.add('hidden');
+    btn.removeEventListener('click', handler);
+  }, 5000);
+}
+
+// ---- Meal Templates ----
+// Vorlagen = gespeicherte Kombinationen (z.B. "Mein Standard-Fruehstueck").
+// 1-Klick -> alle Items als Entries fuer heute loggen.
+
+async function refreshMealTemplates() {
+  const templates = await getAllMealTemplates();
+  const section = document.getElementById('meal-templates-section');
+  const list = document.getElementById('meal-templates-list');
+  if (!section || !list) return;
+
+  list.innerHTML = '';
+
+  if (templates.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+
+  templates.slice(0, 12).forEach(t => {
+    const totalKcal = t.items.reduce((s, i) => s + ((i.kcalPer100 || 0) * i.grams / 100), 0);
+    const chip = document.createElement('div');
+    chip.className = 'template-chip';
+    chip.innerHTML = `
+      <button class="template-chip-main" data-id="${t.id}" title="Anwenden">
+        <span class="template-chip-name">${escapeHtml(t.name)}</span>
+        <span class="template-chip-info">${t.items.length} Items &middot; ${Math.round(totalKcal)} kcal</span>
+      </button>
+      <button class="template-chip-remove" data-id="${t.id}" title="L&ouml;schen" aria-label="L&ouml;schen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <path d="M6 6 L18 18 M18 6 L6 18"/>
+        </svg>
+      </button>
+    `;
+    chip.querySelector('.template-chip-main').addEventListener('click', () => applyTemplateNow(t.id));
+    chip.querySelector('.template-chip-remove').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      removeMealTemplate(t.id);
+    });
+    list.appendChild(chip);
+  });
+}
+
+async function promptSaveTodayAsTemplate() {
+  const entries = await getTodayEntries();
+  if (entries.length === 0) { showToast('Keine Eintr\u00E4ge zum Speichern'); return; }
+
+  const name = window.prompt('Name der Vorlage (z.B. "Mein Standard-Fr\u00FChst\u00FCck")');
+  if (!name || !name.trim()) return;
+
+  const items = entries.map(e => ({
+    productName: e.productName,
+    kcalPer100: e.kcalPer100 || 0,
+    proteinPer100: e.proteinPer100 || 0,
+    carbsPer100: e.carbsPer100 || 0,
+    fatPer100: e.fatPer100 || 0,
+    sugarPer100: e.sugarPer100 || 0,
+    fiberPer100: e.fiberPer100 || 0,
+    sodiumPer100: e.sodiumPer100 || 0,
+    saturatedFatPer100: e.saturatedFatPer100 || 0,
+    grams: e.grams,
+    meal: e.meal
+  }));
+
+  await saveMealTemplate({ name: name.trim(), items });
+  haptic();
+  showToast('Vorlage gespeichert');
+  refreshMealTemplates();
+}
+
+async function applyTemplateNow(id) {
+  const t = await dbGet('mealTemplates', id);
+  if (!t) return;
+  await applyMealTemplate(t);
+  haptic();
+  showToast(`"${t.name}" hinzugef\u00FCgt`);
+  refreshTodayView();
+}
+
+async function removeMealTemplate(id) {
+  if (!confirm('Vorlage l\u00F6schen?')) return;
+  await deleteMealTemplate(id);
+  haptic();
+  showToast('Vorlage gel\u00F6scht');
+  refreshMealTemplates();
 }
 
 // ---- Live-Forecast fuer Heute ----

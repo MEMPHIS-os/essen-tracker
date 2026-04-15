@@ -3,7 +3,7 @@
 // ============================================
 
 const DB_NAME = 'EssenTrackerDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let db = null;
 
@@ -60,6 +60,11 @@ function openDB() {
 
       if (!database.objectStoreNames.contains('achievements')) {
         database.createObjectStore('achievements', { keyPath: 'key' });
+      }
+
+      // v5: Meal-Templates (gespeicherte Mahlzeiten-Kombos fuer 1-Klick-Logging)
+      if (!database.objectStoreNames.contains('mealTemplates')) {
+        database.createObjectStore('mealTemplates', { keyPath: 'id' });
       }
     };
 
@@ -286,6 +291,46 @@ async function getWaterLog(date) {
   return dbGet('waterLog', date);
 }
 
+// ---- Meal Templates ----
+
+async function saveMealTemplate(template) {
+  template.id = template.id || crypto.randomUUID();
+  template.createdAt = template.createdAt || Date.now();
+  await dbPut('mealTemplates', template);
+  return template;
+}
+
+async function getAllMealTemplates() {
+  const all = await dbGetAll('mealTemplates');
+  return all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+async function deleteMealTemplate(id) {
+  return dbDelete('mealTemplates', id);
+}
+
+async function applyMealTemplate(template) {
+  // Re-log alle Items der Vorlage als neue Entries fuer heute
+  const added = [];
+  for (const item of template.items) {
+    const entry = await addEntry({
+      productName: item.productName,
+      kcalPer100: item.kcalPer100 || 0,
+      proteinPer100: item.proteinPer100 || 0,
+      carbsPer100: item.carbsPer100 || 0,
+      fatPer100: item.fatPer100 || 0,
+      sugarPer100: item.sugarPer100 || 0,
+      fiberPer100: item.fiberPer100 || 0,
+      sodiumPer100: item.sodiumPer100 || 0,
+      saturatedFatPer100: item.saturatedFatPer100 || 0,
+      grams: item.grams,
+      meal: item.meal
+    });
+    added.push(entry);
+  }
+  return added;
+}
+
 // ---- Recipe-specific ----
 
 async function saveRecipe(recipe) {
@@ -393,11 +438,12 @@ async function exportFullBackup() {
   const userProfile = await getUserProfile();
   const caffeineLog = await dbGetAll('caffeineLog');
   const achievements = await getAllAchievements();
+  const mealTemplates = await dbGetAll('mealTemplates');
   return JSON.stringify({
     entries, recipes, settings, recentProducts,
     weights, barcodeCache, waterLog,
-    userProfile, caffeineLog, achievements,
-    exportDate: new Date().toISOString(), version: 4
+    userProfile, caffeineLog, achievements, mealTemplates,
+    exportDate: new Date().toISOString(), version: 5
   }, null, 2);
 }
 
@@ -413,4 +459,5 @@ async function importFullBackup(jsonStr) {
   if (data.userProfile) await dbPut('userProfile', data.userProfile);
   if (data.caffeineLog) for (const c of data.caffeineLog) await dbPut('caffeineLog', c);
   if (data.achievements) for (const a of data.achievements) await dbPut('achievements', a);
+  if (data.mealTemplates) for (const t of data.mealTemplates) await dbPut('mealTemplates', t);
 }

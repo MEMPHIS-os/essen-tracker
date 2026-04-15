@@ -181,10 +181,23 @@ function renderEntryCard(entry, opts = {}) {
   // Source badge
   const sourceBadge = entry.source ? `<span class="source-badge source-${entry.source}">${entry.source}</span>` : '';
 
+  // Zeitstempel aus ISO extrahieren (HH:MM)
+  let timeStr = '';
+  try {
+    const d = new Date(entry.date);
+    if (!isNaN(d.getTime())) {
+      timeStr = d.toTimeString().slice(0, 5);
+    }
+  } catch (e) {}
+  const timeBadge = timeStr ? `<span class="entry-time">${timeStr}</span>` : '';
+
   card.innerHTML = `
     <div class="entry-left">
       <div class="entry-name">${sourceBadge}${escapeHtml(entry.productName)}</div>
-      <div class="entry-grams">${Math.round(entry.grams)}g</div>
+      <div class="entry-meta-row">
+        <span class="entry-grams">${Math.round(entry.grams)}g</span>
+        ${timeBadge}
+      </div>
     </div>
     <div class="entry-right">
       <div class="entry-kcal">${Math.round(entry.totalKcal)} kcal</div>
@@ -197,7 +210,7 @@ function renderEntryCard(entry, opts = {}) {
   `;
 
   if (opts.canDelete !== false) {
-    setupSwipeToDelete(card, entry.id);
+    setupSwipeToDelete(card, entry);
   }
 
   if (opts.canDelete !== false) {
@@ -240,7 +253,9 @@ function setupTapToEdit(card, entryId) {
 
 // ---- Swipe to Delete ----
 
-function setupSwipeToDelete(card, entryId) {
+function setupSwipeToDelete(card, entry) {
+  const entryId = typeof entry === 'string' ? entry : entry.id;
+  const entryObj = typeof entry === 'string' ? null : entry;
   let startX = 0;
   let currentX = 0;
   let swiping = false;
@@ -272,6 +287,10 @@ function setupSwipeToDelete(card, entryId) {
       haptic();
       setTimeout(async () => {
         await deleteEntry(entryId);
+        // Undo-Toast zeigen (5s Fenster)
+        if (entryObj && typeof showUndoToast === 'function') {
+          showUndoToast(`"${entryObj.productName}" gel\u00F6scht`, entryObj);
+        }
         refreshTodayView();
       }, 200);
     } else {

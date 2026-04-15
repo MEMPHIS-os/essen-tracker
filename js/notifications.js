@@ -30,6 +30,62 @@ async function checkPendingNotifications() {
   if (settings.mealRemindersEnabled) {
     await checkMealReminders();
   }
+
+  // Hydration reminder (stuendlich zwischen 10 und 20 Uhr)
+  if (settings.hydrationReminderEnabled) {
+    await checkHydrationReminder(settings);
+  }
+}
+
+// Stuendliche Pruefung: liegt der User hinter dem erwarteten Tages-Pensum Wasser?
+// Erwartung: linearer Verlauf zwischen 8 und 20 Uhr
+async function checkHydrationReminder(settings) {
+  const now = new Date();
+  const hour = now.getHours();
+  if (hour < 10 || hour > 20) return; // nur 10-20 Uhr
+
+  const today = now.toISOString().split('T')[0];
+  const flag = `hydration_${today}_${hour}`;
+  if (localStorage.getItem(flag)) return;
+
+  const log = await getWaterLog(today);
+  const glasses = log ? log.glasses : 0;
+  const goal = settings.dailyWater || 8;
+
+  const expectedRatio = Math.max(0, Math.min(1, (hour - 8) / 12));
+  const expected = goal * expectedRatio;
+
+  // Nur pushen, wenn mindestens 1 Glas Rueckstand UND unter 90% Erfuellung
+  const shortfall = expected - glasses;
+  if (shortfall < 1 || glasses >= goal * 0.9) {
+    localStorage.setItem(flag, '1');
+    return;
+  }
+
+  const missing = Math.ceil(shortfall);
+  sendNotification(
+    'Wasser-Erinnerung',
+    `Du liegst ca. ${missing} Glas hinter deinem Tagespensum (${glasses}/${goal}).`,
+    'hydration-' + hour
+  );
+  localStorage.setItem(flag, '1');
+}
+
+async function toggleHydrationReminder() {
+  const settings = await getSettings();
+  if (!settings.hydrationReminderEnabled) {
+    const granted = await requestNotificationPermission();
+    if (!granted) { showToast('Benachrichtigungen nicht erlaubt'); return; }
+  }
+  settings.hydrationReminderEnabled = !settings.hydrationReminderEnabled;
+  await saveSettingsData(settings);
+  haptic();
+  showToast(settings.hydrationReminderEnabled ? 'Wasser-Erinnerung aktiviert' : 'Wasser-Erinnerung deaktiviert');
+  const btn = document.getElementById('btn-toggle-hydration');
+  if (btn) {
+    btn.textContent = settings.hydrationReminderEnabled ? 'An' : 'Aus';
+    btn.classList.toggle('active', settings.hydrationReminderEnabled);
+  }
 }
 
 // Mittag (12-13 Uhr) und Abend (18-20 Uhr) Reminder, wenn die jeweilige Mahlzeit noch nicht geloggt wurde

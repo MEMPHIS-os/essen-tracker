@@ -150,6 +150,8 @@
 
           <!-- Live-Forecast: wohin landet dein Tag? -->
           <div id="live-forecast" class="live-forecast hidden"></div>
+          <!-- Naehrwert-Warnungen (Zucker, ges. Fett, Salz) -->
+          <div id="nutrient-warnings" class="nutrient-warnings hidden"></div>
           <div class="macro-bars">
             <div class="macro-bar-row">
               <span class="macro-label">Kalorien</span>
@@ -285,10 +287,19 @@
           <div id="recent-products-list" class="recent-chips"></div>
         </div>
 
+        <!-- Meal-Templates (gespeicherte Mahlzeiten-Kombos) -->
+        <div id="meal-templates-section" class="hidden">
+          <h3 class="section-header">Vorlagen</h3>
+          <div id="meal-templates-list" class="template-chips"></div>
+        </div>
+
         <div id="today-entries">
           <div class="entries-header-row">
             <h3 id="entries-header">Eintr&auml;ge (0)</h3>
-            <button id="btn-repeat-yesterday" class="btn-tertiary" onclick="repeatYesterday()">&#8617; Gestern</button>
+            <div class="entries-header-actions">
+              <button id="btn-save-template" class="btn-tertiary" onclick="promptSaveTodayAsTemplate()" title="Heutigen Tag als Vorlage speichern">&starf; Vorlage</button>
+              <button id="btn-repeat-yesterday" class="btn-tertiary" onclick="repeatYesterday()">&#8617; Gestern</button>
+            </div>
           </div>
           <div id="entries-list"></div>
           <div id="entries-empty" class="empty-state">
@@ -499,6 +510,10 @@
           <div class="notification-toggle">
             <span class="settings-label">Meal-Reminder (12 &amp; 19 Uhr)</span>
             <button id="btn-toggle-meal" class="toggle-btn" onclick="toggleMealReminders()">Aus</button>
+          </div>
+          <div class="notification-toggle">
+            <span class="settings-label">Wasser-Push (10-20 Uhr)</span>
+            <button id="btn-toggle-hydration" class="toggle-btn" onclick="toggleHydrationReminder()">Aus</button>
           </div>
           <div class="notification-toggle">
             <span class="settings-label">Wochen-Zusammenfassung</span>
@@ -845,6 +860,10 @@
 
     <!-- Toast -->
     <div id="toast" class="toast hidden"></div>
+    <div id="undo-toast" class="undo-toast hidden">
+      <span class="undo-toast-msg"></span>
+      <button class="undo-toast-btn">R&uuml;ckg&auml;ngig</button>
+    </div>
 
     <!-- Achievement Toast -->
     <div id="achievement-toast" class="achievement-toast hidden"></div>

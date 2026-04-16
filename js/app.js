@@ -1129,7 +1129,8 @@ async function runManualAiEstimate() {
     haptic();
   } catch (err) {
     console.error('[AI Estimate] Fehler:', err);
-    showToast('Fehler bei KI-Schaetzung');
+    const reason = (typeof classifyGeminiError === 'function') ? classifyGeminiError(err) : 'Unbekannter Fehler';
+    showToast(`KI-Schaetzung fehlgeschlagen: ${reason}`);
   } finally {
     btn.disabled = false;
     btn.textContent = originalBtnText;

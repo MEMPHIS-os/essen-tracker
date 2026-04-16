@@ -59,7 +59,13 @@ async function handlePhotoSelected(event) {
         }
       } catch (geminiErr) {
         console.warn('Gemini failed, falling back to Tesseract:', geminiErr);
+        const reason = classifyGeminiError(geminiErr);
+        if (typeof showToast === 'function') {
+          showToast(`KI-Analyse fehlgeschlagen: ${reason}`);
+        }
       }
+    } else if (typeof showToast === 'function') {
+      showToast('Kein KI-Key gesetzt — nutze OCR-Fallback');
     }
 
     // 2) Fallback: Tesseract OCR
@@ -90,6 +96,31 @@ async function handlePhotoSelected(event) {
 // ============================================
 // Gemini Vision
 // ============================================
+
+// Klassifiziert Gemini-Fehler in menschenlesbare Kurzgruende fuer Toast.
+function classifyGeminiError(err) {
+  const msg = (err && err.message ? err.message : String(err)) || '';
+  // HTTP-Status-Code aus "Gemini API 403: ..." ziehen
+  const statusMatch = msg.match(/Gemini API\s+(\d{3})/);
+  if (statusMatch) {
+    const code = parseInt(statusMatch[1], 10);
+    if (code === 400) return 'Ungueltiger Request (Bild zu gross oder Format-Problem)';
+    if (code === 401 || code === 403) return 'Auth-Fehler (Key ungueltig oder gesperrt)';
+    if (code === 404) return 'Modell nicht gefunden';
+    if (code === 413) return 'Bild zu gross';
+    if (code === 429) return 'Rate-Limit erreicht (zu viele Anfragen)';
+    if (code >= 500) return `Server-Fehler bei Gemini (${code})`;
+    return `HTTP ${code}`;
+  }
+  if (/Failed to fetch|NetworkError|ERR_NETWORK|TypeError: Failed/i.test(msg)) {
+    return 'Netzwerk-Fehler (offline?)';
+  }
+  if (/leere Antwort/i.test(msg)) return 'Gemini lieferte leere Antwort';
+  if (/JSON/i.test(msg)) return 'Antwort nicht parsebar';
+  if (/safety|blocked/i.test(msg)) return 'Bild von Safety-Filter blockiert';
+  // Fallback: gekuerzter Originaltext
+  return msg.slice(0, 80);
+}
 
 async function analyzeWithGemini(file, apiKey) {
   // Resize + base64-encode before sending (Gemini accepts up to ~20MB but smaller is faster)
@@ -160,7 +191,8 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     generationConfig: {
       temperature: 0.3,
       maxOutputTokens: 1024,
-      responseMimeType: 'application/json'
+      responseMimeType: 'application/json',
+      responseSchema: GEMINI_PHOTO_SCHEMA
     }
   };
 
@@ -181,7 +213,7 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini: leere Antwort');
 
-  // Parse JSON (strip markdown fences if any)
+  // Mit responseSchema garantiert Gemini valides JSON - trotzdem Safety-Strip fuer den Fall
   const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
   const parsed = JSON.parse(cleaned);
 
@@ -201,6 +233,65 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     confidence: parsed.confidence != null ? numOrZero(parsed.confidence) : 0.8
   };
 }
+
+// Shared response schema fuer Photo-Analyse (v1beta Schema-Format von Gemini)
+const GEMINI_PHOTO_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    name:          { type: 'STRING' },
+    detectedType:  { type: 'STRING', enum: ['label', 'dish', 'raw', 'package'] },
+    kcal:          { type: 'NUMBER' },
+    protein:       { type: 'NUMBER' },
+    carbs:         { type: 'NUMBER' },
+    fat:           { type: 'NUMBER' },
+    sugar:         { type: 'NUMBER' },
+    fiber:         { type: 'NUMBER' },
+    saturatedFat:  { type: 'NUMBER' },
+    sodium:        { type: 'NUMBER' },
+    portionDesc:   { type: 'STRING' },
+    portionGrams:  { type: 'NUMBER' },
+    confidence:    { type: 'NUMBER' }
+  },
+  required: [
+    'name', 'detectedType', 'kcal', 'protein', 'carbs', 'fat',
+    'sugar', 'fiber', 'saturatedFat', 'sodium',
+    'portionDesc', 'portionGrams', 'confidence'
+  ],
+  propertyOrdering: [
+    'name', 'detectedType', 'kcal', 'protein', 'carbs', 'fat',
+    'sugar', 'fiber', 'saturatedFat', 'sodium',
+    'portionDesc', 'portionGrams', 'confidence'
+  ]
+};
+
+// Shared response schema fuer Text-only Dish-Analyse
+const GEMINI_DISH_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    name:          { type: 'STRING' },
+    kcal:          { type: 'NUMBER' },
+    protein:       { type: 'NUMBER' },
+    carbs:         { type: 'NUMBER' },
+    fat:           { type: 'NUMBER' },
+    sugar:         { type: 'NUMBER' },
+    fiber:         { type: 'NUMBER' },
+    saturatedFat:  { type: 'NUMBER' },
+    sodium:        { type: 'NUMBER' },
+    portionDesc:   { type: 'STRING' },
+    portionGrams:  { type: 'NUMBER' },
+    confidence:    { type: 'NUMBER' }
+  },
+  required: [
+    'name', 'kcal', 'protein', 'carbs', 'fat',
+    'sugar', 'fiber', 'saturatedFat', 'sodium',
+    'portionDesc', 'portionGrams', 'confidence'
+  ],
+  propertyOrdering: [
+    'name', 'kcal', 'protein', 'carbs', 'fat',
+    'sugar', 'fiber', 'saturatedFat', 'sodium',
+    'portionDesc', 'portionGrams', 'confidence'
+  ]
+};
 
 // Text-only variant: schaetzt Naehrwerte aus Gericht-Beschreibung
 async function analyzeDishWithGemini(description, apiKey) {
@@ -252,7 +343,8 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     generationConfig: {
       temperature: 0.3,
       maxOutputTokens: 1024,
-      responseMimeType: 'application/json'
+      responseMimeType: 'application/json',
+      responseSchema: GEMINI_DISH_SCHEMA
     }
   };
 

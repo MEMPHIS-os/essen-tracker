@@ -128,56 +128,85 @@ async function analyzeWithGemini(file, apiKey) {
 
   const prompt = `Du bist ein erfahrener Ernaehrungs-Experte und analysierst Fotos von Lebensmitteln, Gerichten und Naehrwerttabellen.
 
-ZWEI-PHASEN-VORGEHEN (denke Schritt fuer Schritt, gib aber nur JSON zurueck):
+DREI-PHASEN-VORGEHEN (denke Schritt fuer Schritt, gib aber nur JSON zurueck):
+
 PHASE 1 - IDENTIFIZIEREN:
   Schaue dir das Bild genau an. Was ist zu sehen?
   - Eine Naehrwerttabelle / ein Produktetikett?  -> detectedType = "label"
-  - Ein fertig zubereitetes Gericht auf Teller/Schale (Pasta, Lasagne, Pizza, Curry, Burger, Suppe, Bowl...)?  -> detectedType = "dish"
-  - Rohe Zutaten oder einzelne Lebensmittel (Obst, Gemuese, Brot, Nuesse...)?  -> detectedType = "raw"
+  - EIN fertig zubereitetes MISCHgericht (Lasagne, Pizza, Curry, Burger, Suppe, Bowl - alles in einer Masse/Soße)?  -> detectedType = "dish"
+  - EIN TELLER mit MEHREREN getrennten Komponenten (z.B. Fleisch + Gemuese + Beilage nebeneinander, Sushi-Platte, Fruehstuecksteller)?  -> detectedType = "plate"
+  - Rohe Zutaten oder einzelne Lebensmittel (Obst, Gemuese, Brot, Nuesse, Glas Milch...)?  -> detectedType = "raw"
   - Verpacktes Produkt im Regal/Hand?  -> detectedType = "package"
-  Erkenne das Gericht beim Namen (z.B. "Lasagne Bolognese", "Hawaii Pizza", "Huehnchen-Curry mit Reis", "Chili con Carne"). Komponenten nennen, wenn moeglich.
 
-PHASE 2 - WERTE ABLEITEN:
-  Basierend auf dem identifizierten Gericht: Typische Naehrwerte pro 100g ansetzen.
-  Fuer Mischgerichte: durchschnittliche Zusammensetzung annehmen.
+PHASE 2 - KOMPONENTEN IDENTIFIZIEREN (nur wenn detectedType="plate"):
+  Liste JEDE sichtbare Komponente separat auf. Fuer jede:
+  - Name (z.B. "Haehnchenbrust", "Brokkoli", "Kartoffeln")
+  - Geschaetzte Gramm (basierend auf sichtbarer Groesse auf dem Teller)
+  - Typische Naehrwerte pro 100g fuer diese Komponente
+  Bei detectedType="dish"/"raw"/"package": components = [] (leer lassen oder nur eine Komponente).
+
+PHASE 3 - TOP-LEVEL-WERTE ABLEITEN:
+  - Bei detectedType="plate": Die Top-Level-Werte (kcal, protein, ...) sind der GEWICHTETE DURCHSCHNITT aller Komponenten pro 100g.
+    Formel: totalKcal = Summe(kcal_i * grams_i / 100); totalGrams = Summe(grams_i); kcal_pro_100g = totalKcal * 100 / totalGrams.
+    Analog fuer protein/carbs/fat/sugar/fiber/saturatedFat/sodium.
+    portionGrams = Summe aller grams_i.
+  - Bei detectedType="dish"/"raw"/"package": Typische Naehrwerte pro 100g; components darf leer bleiben.
 
 WICHTIGE REGEL (asymmetrische Unsicherheit):
-- Bei NAEHRWERTTABELLE (detectedType="label"): Nur Werte uebernehmen, die wirklich lesbar sind. Bei unlesbaren Feldern -> 0.
-- Bei ESSEN (detectedType="dish", "raw", "package"): IMMER eine realistische Schaetzung liefern. Niemals 0 fuer kcal/protein/carbs/fat setzen nur weil du unsicher bist. Lieber eine plausible Schaetzung auf Basis typischer Rezepte. 0 nur wenn das Nehrwert-Feld naturgemaess 0 ist (z.B. Zucker bei Pommes).
+- Bei NAEHRWERTTABELLE (label): Nur Werte uebernehmen die lesbar sind. Unlesbar -> 0.
+- Bei ESSEN (dish/plate/raw/package): IMMER realistische Schaetzung. Nie 0 fuer kcal/protein/carbs/fat aus Unsicherheit. 0 nur wenn naturgemaess 0 (z.B. Zucker bei Pommes).
 
-RICHTWERTE FUER MISCHGERICHTE (pro 100g):
-- Lasagne Bolognese: ~150 kcal, 8g Protein, 12g Carbs, 7g Fett - typische Portion 350-450g
-- Pizza (belegt): ~265 kcal, 11g Protein, 30g Carbs, 11g Fett - typische Portion 300g
-- Spaghetti Bolognese: ~150 kcal, 7g Protein, 18g Carbs, 5g Fett - typische Portion 350g
-- Huehnchen-Curry mit Reis: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - typische Portion 400g
-- Burger (Cheeseburger): ~260 kcal, 14g Protein, 22g Carbs, 13g Fett - typische Portion 220g
-- Doener (Kebab): ~215 kcal, 14g Protein, 18g Carbs, 9g Fett - typische Portion 400g
-- Gruener Salat mit Dressing: ~80 kcal, 2g Protein, 5g Carbs, 5g Fett - typische Portion 250g
-- Suppe/Eintopf (Gemuese): ~60 kcal, 3g Protein, 8g Carbs, 2g Fett - typische Portion 350g
-- Chili con Carne: ~130 kcal, 8g Protein, 13g Carbs, 5g Fett - typische Portion 350g
-- Sushi (gemischt): ~150 kcal, 6g Protein, 28g Carbs, 2g Fett - typische Portion 250g
-- Bowl mit Reis+Gemuese+Protein: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - typische Portion 400g
+RICHTWERTE FUER MISCHGERICHTE (pro 100g, detectedType="dish"):
+- Lasagne Bolognese: ~150 kcal, 8g Protein, 12g Carbs, 7g Fett - Portion 350-450g
+- Pizza (belegt): ~265 kcal, 11g Protein, 30g Carbs, 11g Fett - Portion 300g
+- Spaghetti Bolognese: ~150 kcal, 7g Protein, 18g Carbs, 5g Fett - Portion 350g
+- Huehnchen-Curry mit Reis: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - Portion 400g
+- Burger (Cheeseburger): ~260 kcal, 14g Protein, 22g Carbs, 13g Fett - Portion 220g
+- Doener (Kebab): ~215 kcal, 14g Protein, 18g Carbs, 9g Fett - Portion 400g
+- Gruener Salat mit Dressing: ~80 kcal, 2g Protein, 5g Carbs, 5g Fett - Portion 250g
+- Suppe/Eintopf (Gemuese): ~60 kcal, 3g Protein, 8g Carbs, 2g Fett - Portion 350g
+- Chili con Carne: ~130 kcal, 8g Protein, 13g Carbs, 5g Fett - Portion 350g
+- Sushi (gemischt): ~150 kcal, 6g Protein, 28g Carbs, 2g Fett - Portion 250g
+- Bowl mit Reis+Gemuese+Protein: ~140 kcal, 8g Protein, 18g Carbs, 4g Fett - Portion 400g
+
+RICHTWERTE FUER EINZELKOMPONENTEN pro 100g (nutze fuer detectedType="plate"):
+Proteine: Haehnchenbrust gebraten ~165 kcal/31P/0C/3.6F; Lachs gebraten ~208 kcal/22P/0C/13F; Rindersteak mager ~250 kcal/26P/0C/15F; Schweineschnitzel paniert ~295 kcal/18P/14C/18F; Tofu gebraten ~145 kcal/13P/3C/9F; Ei gekocht ~155 kcal/13P/1C/11F
+Beilagen (Kohlenhydrate): Kartoffeln gekocht ~80 kcal/2P/17C/0.1F; Kartoffeln gebraten ~150 kcal/3P/23C/6F; Pommes ~320 kcal/4P/38C/17F; Reis gekocht ~130 kcal/3P/28C/0.3F; Pasta gekocht ~160 kcal/6P/31C/1F; Kartoffelpuree ~85 kcal/2P/15C/2F; Brot ~265 kcal/9P/49C/3F
+Gemuese gekocht/roh: Brokkoli ~35 kcal/3P/7C/0.4F; Karotten ~35 kcal/1P/8C/0.2F; Blumenkohl ~25 kcal/2P/5C/0.3F; Spinat ~25 kcal/3P/4C/0.4F; Bohnen gruen ~30 kcal/2P/5C/0.2F; Erbsen ~80 kcal/5P/14C/0.4F; Tomatensalat ~30 kcal/1P/5C/0.5F; Gurkensalat ~20 kcal/1P/3C/0.2F; Rotkohl ~25 kcal/1P/5C/0.2F; Sauerkraut ~20 kcal/1P/4C/0.1F; Champignons gebraten ~40 kcal/3P/3C/1.5F
+Sossen: Bratensosse ~100 kcal/3P/5C/7F; Butter ~750 kcal/0.5P/0.5C/83F; Oel ~880 kcal/0P/0C/100F
+
+FEW-SHOT BEISPIELE FUER PLATE (multi-component):
+
+Beispiel A - "Haehnchenbrust mit Brokkoli und Kartoffeln":
+components = [
+  { name: "Haehnchenbrust", grams: 150, kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
+  { name: "Brokkoli",       grams: 150, kcal: 35,  protein: 3,  carbs: 7, fat: 0.4 },
+  { name: "Kartoffeln",     grams: 200, kcal: 80,  protein: 2,  carbs: 17, fat: 0.1 }
+]
+Rechnung: totalGrams=500; totalKcal = 1.5*165 + 1.5*35 + 2*80 = 247.5 + 52.5 + 160 = 460
+=> kcal pro 100g = 460*100/500 = 92
+Analog: protein_pro_100g = (1.5*31 + 1.5*3 + 2*2)*100/500 = (46.5+4.5+4)*100/500 = 55*100/500 = 11
+Top-Level: kcal=92, protein=11, carbs=9, fat=1.2, portionGrams=500, name="Haehnchen mit Brokkoli und Kartoffeln"
+
+Beispiel B - "Lachs mit Reis und Gemuese":
+components = [
+  { name: "Lachsfilet", grams: 180, kcal: 208, protein: 22, carbs: 0, fat: 13 },
+  { name: "Reis",       grams: 150, kcal: 130, protein: 3,  carbs: 28, fat: 0.3 },
+  { name: "Mischgemuese", grams: 120, kcal: 30, protein: 2, carbs: 5, fat: 0.3 }
+]
+=> totalGrams=450; kcal pro 100g = (1.8*208+1.5*130+1.2*30)*100/450 ≈ (374+195+36)*100/450 ≈ 134
+
+Beispiel C - "Schnitzel mit Pommes und Salat":
+components = [
+  { name: "Schnitzel paniert", grams: 200, kcal: 295, protein: 18, carbs: 14, fat: 18 },
+  { name: "Pommes",            grams: 200, kcal: 320, protein: 4,  carbs: 38, fat: 17 },
+  { name: "Gemischter Salat",  grams: 100, kcal: 30,  protein: 1,  carbs: 5,  fat: 0.5 }
+]
+=> totalGrams=500; kcal pro 100g ≈ (590+640+30)*100/500 ≈ 252
 
 RICHTWERTE FUER EINZELSTUECKE:
 1 mittlerer Apfel ~180g, 1 Banane ~120g, 1 Ei ~60g, 1 Scheibe Brot ~30g,
 1 Becher Joghurt ~150g, 1 Handvoll Nuesse ~30g, 1 Riegel Schoko ~100g
-
-ANTWORT-SCHEMA (gib NUR dieses JSON zurueck, kein Markdown):
-{
-  "name": "Produktname auf Deutsch, konkret (max 60 Zeichen)",
-  "detectedType": "label" | "dish" | "raw" | "package",
-  "kcal": Zahl (pro 100g),
-  "protein": Zahl (g pro 100g),
-  "carbs": Zahl (g pro 100g),
-  "fat": Zahl (g pro 100g),
-  "sugar": Zahl (g pro 100g),
-  "fiber": Zahl (g pro 100g),
-  "saturatedFat": Zahl (g pro 100g),
-  "sodium": Zahl (mg pro 100g),
-  "portionDesc": "kurze Portionsbeschreibung (max 40 Zeichen), z.B. '1 Teller Lasagne', '1 grosses Stueck Pizza', '1 Becher Joghurt'",
-  "portionGrams": Zahl (geschaetztes Gesamtgewicht der sichtbaren Portion in Gramm),
-  "confidence": Zahl zwischen 0.0 und 1.0 (wie sicher bist du bei der Identifikation)
-}
 
 Gib NUR das JSON zurueck, nichts davor oder danach.`;
 
@@ -217,9 +246,20 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
   const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
   const parsed = JSON.parse(cleaned);
 
+  // Komponenten normalisieren (Sanity-Check + Cap auf 10 Eintraege)
+  const comps = Array.isArray(parsed.components) ? parsed.components.slice(0, 10).map(c => ({
+    name: (c && c.name || '').toString().slice(0, 40),
+    grams: numOrZero(c && c.grams),
+    kcal: numOrZero(c && c.kcal),
+    protein: numOrZero(c && c.protein),
+    carbs: numOrZero(c && c.carbs),
+    fat: numOrZero(c && c.fat)
+  })).filter(c => c.name && c.grams > 0) : [];
+
   return {
     name: (parsed.name || '').toString().slice(0, 80),
     detectedType: parsed.detectedType || '',
+    components: comps,
     kcal: numOrZero(parsed.kcal),
     protein: numOrZero(parsed.protein),
     carbs: numOrZero(parsed.carbs),
@@ -239,7 +279,23 @@ const GEMINI_PHOTO_SCHEMA = {
   type: 'OBJECT',
   properties: {
     name:          { type: 'STRING' },
-    detectedType:  { type: 'STRING', enum: ['label', 'dish', 'raw', 'package'] },
+    detectedType:  { type: 'STRING', enum: ['label', 'dish', 'plate', 'raw', 'package'] },
+    components: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name:    { type: 'STRING' },
+          grams:   { type: 'NUMBER' },
+          kcal:    { type: 'NUMBER' },
+          protein: { type: 'NUMBER' },
+          carbs:   { type: 'NUMBER' },
+          fat:     { type: 'NUMBER' }
+        },
+        required: ['name', 'grams', 'kcal', 'protein', 'carbs', 'fat'],
+        propertyOrdering: ['name', 'grams', 'kcal', 'protein', 'carbs', 'fat']
+      }
+    },
     kcal:          { type: 'NUMBER' },
     protein:       { type: 'NUMBER' },
     carbs:         { type: 'NUMBER' },
@@ -253,12 +309,14 @@ const GEMINI_PHOTO_SCHEMA = {
     confidence:    { type: 'NUMBER' }
   },
   required: [
-    'name', 'detectedType', 'kcal', 'protein', 'carbs', 'fat',
+    'name', 'detectedType', 'components',
+    'kcal', 'protein', 'carbs', 'fat',
     'sugar', 'fiber', 'saturatedFat', 'sodium',
     'portionDesc', 'portionGrams', 'confidence'
   ],
   propertyOrdering: [
-    'name', 'detectedType', 'kcal', 'protein', 'carbs', 'fat',
+    'name', 'detectedType', 'components',
+    'kcal', 'protein', 'carbs', 'fat',
     'sugar', 'fiber', 'saturatedFat', 'sodium',
     'portionDesc', 'portionGrams', 'confidence'
   ]
@@ -549,7 +607,21 @@ function showPhotoResults(parsed, source) {
   results.classList.remove('hidden');
 
   const badgeClass = source === 'KI' ? 'photo-source-badge ki' : 'photo-source-badge';
-  const portionHint = parsed.portionDesc
+
+  // Multi-Component Breakdown (wenn detectedType=plate und components vorhanden)
+  const hasComponents = Array.isArray(parsed.components) && parsed.components.length > 1;
+  const componentsHtml = hasComponents
+    ? `<div class="photo-components-list">
+         ${parsed.components.map(c =>
+           `<span class="photo-component-chip">
+              <strong>${escapeHtml(c.name)}</strong>
+              <span class="photo-component-grams">${Math.round(c.grams)}&nbsp;g</span>
+            </span>`
+         ).join('')}
+       </div>`
+    : '';
+
+  const portionHint = (parsed.portionDesc || hasComponents)
     ? `<div class="photo-portion-hint">
          <svg class="portion-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
            <path d="M4 8 l8 -4 l8 4 l-8 4 z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
@@ -557,8 +629,9 @@ function showPhotoResults(parsed, source) {
            <path d="M20 8 v8 l-8 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
          </svg>
          <div class="portion-text">
-           <strong>Erkannt:</strong> ${escapeHtml(parsed.portionDesc)}${parsed.portionGrams ? ` &middot; ca. <strong>${Math.round(parsed.portionGrams)} g</strong>` : ''}
-           <br><span class="portion-hint-sub">Gramm unten sind vorbef&uuml;llt &mdash; pr&uuml;fen und bei Bedarf anpassen</span>
+           <strong>Erkannt:</strong> ${escapeHtml(parsed.portionDesc || parsed.name || '')}${parsed.portionGrams ? ` &middot; ca. <strong>${Math.round(parsed.portionGrams)} g</strong>` : ''}
+           ${componentsHtml}
+           <br><span class="portion-hint-sub">${hasComponents ? 'Komponenten zusammengerechnet &mdash; pr&uuml;fen und bei Bedarf anpassen' : 'Gramm unten sind vorbef&uuml;llt &mdash; pr&uuml;fen und bei Bedarf anpassen'}</span>
          </div>
        </div>`
     : '';

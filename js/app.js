@@ -1344,6 +1344,12 @@ async function refreshHistoryView() {
         <circle class="ring-bg" cx="50" cy="50" r="42"/>
         <circle class="ring-progress kcal" cx="50" cy="50" r="42"
           style="stroke-dasharray:263.89; stroke-dashoffset:${263.89 * (1 - Math.min(totalKcal / settings.dailyKcal, 1))}"/>
+        <g class="ring-ticks" aria-hidden="true">
+          <circle cx="92" cy="50" r="1.5"/>
+          <circle cx="50" cy="8"  r="1.5"/>
+          <circle cx="8"  cy="50" r="1.5"/>
+          <circle cx="50" cy="92" r="1.5"/>
+        </g>
       </svg>
       <div class="ring-label">
         <span class="ring-value">${Math.round(totalKcal)}</span>
@@ -1355,6 +1361,12 @@ async function refreshHistoryView() {
         <circle class="ring-bg" cx="50" cy="50" r="42"/>
         <circle class="ring-progress protein" cx="50" cy="50" r="42"
           style="stroke-dasharray:263.89; stroke-dashoffset:${263.89 * (1 - Math.min(totalProtein / settings.dailyProtein, 1))}"/>
+        <g class="ring-ticks" aria-hidden="true">
+          <circle cx="92" cy="50" r="1.5"/>
+          <circle cx="50" cy="8"  r="1.5"/>
+          <circle cx="8"  cy="50" r="1.5"/>
+          <circle cx="50" cy="92" r="1.5"/>
+        </g>
       </svg>
       <div class="ring-label">
         <span class="ring-value">${Math.round(totalProtein)}g</span>

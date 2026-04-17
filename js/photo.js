@@ -97,6 +97,67 @@ async function handlePhotoSelected(event) {
 // Gemini Vision
 // ============================================
 
+// Ein einzelner Gemini-Call - wirft Error mit .status fuer Retry-Entscheidung
+async function _callGeminiOnce(model, body, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch (netErr) {
+    const err = new Error(`Gemini API 0: ${netErr.message || 'Network error'}`);
+    err.status = 0;
+    throw err;
+  }
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    const err = new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+// Retry-Wrapper: 2x pro Modell mit Exponential-Backoff, dann Fallback-Modell.
+// Retry nur bei 429/5xx/Netzwerk, nicht bei Auth/400 (sinnlos).
+async function callGeminiWithFallback(body, apiKey, statusEl) {
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const attemptsPerModel = 2;
+  const baseDelayMs = 700;
+  let lastErr;
+
+  for (let mi = 0; mi < models.length; mi++) {
+    const model = models[mi];
+    for (let attempt = 0; attempt < attemptsPerModel; attempt++) {
+      try {
+        if (statusEl && (mi > 0 || attempt > 0)) {
+          statusEl.textContent = mi > 0
+            ? 'KI (Fallback-Modell) analysiert...'
+            : 'KI erneut versuchen...';
+        }
+        return await _callGeminiOnce(model, body, apiKey);
+      } catch (err) {
+        lastErr = err;
+        const status = err.status != null ? err.status : 0;
+        // Retryable: 429, 5xx, Netzwerk (0), oder bekannte Google-Overload-Texte
+        const retryable =
+          status === 429 || status >= 500 || status === 0 ||
+          /overloaded|unavailable|UNAVAILABLE/i.test(err.message || '');
+        if (!retryable) throw err;
+        const isLastAttemptForThisModel = attempt === attemptsPerModel - 1;
+        if (!isLastAttemptForThisModel) {
+          const delay = baseDelayMs * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+  }
+  throw lastErr;
+}
+
 // Klassifiziert Gemini-Fehler in menschenlesbare Kurzgruende fuer Toast.
 function classifyGeminiError(err) {
   const msg = (err && err.message ? err.message : String(err)) || '';
@@ -225,20 +286,8 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
+  const statusEl = document.getElementById('photo-status');
+  const data = await callGeminiWithFallback(body, apiKey, statusEl);
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini: leere Antwort');
 
@@ -406,20 +455,7 @@ Gib NUR das JSON zurueck, nichts davor oder danach.`;
     }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
+  const data = await callGeminiWithFallback(body, apiKey, null);
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini: leere Antwort');
 
@@ -473,20 +509,7 @@ Antworte NUR als Freitext, kein JSON, kein Markdown. Sei ermutigend aber ehrlich
     }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
+  const data = await callGeminiWithFallback(body, apiKey, null);
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini: leere Antwort');
   return text.trim();

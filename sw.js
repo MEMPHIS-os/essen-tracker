@@ -1,4 +1,4 @@
-const CACHE_NAME = 'essentracker-v30';
+const CACHE_NAME = 'essentracker-v31';
 const ASSETS = [
   './',
   './index.html',
